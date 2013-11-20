@@ -1,7 +1,6 @@
 package com.poterion.potpho.test;
 
 import java.io.IOException;
-import java.util.List;
 
 public class WriteExifMetadataExample {
 	private final static String image1 = "C:\\Users\\jkubovy\\Downloads\\Temp\\2013-11-01 - Budapest\\2013-11-01 - 0002.JPG";
@@ -10,7 +9,7 @@ public class WriteExifMetadataExample {
 	public static void main(String... args) throws IOException {
 		JpegImage image = new JpegImage(image1);
 		image.read();
-		ExifSegment exif = image.getExifSegment();
+		// ExifSegment exif = image.getExifSegment();
 		image.write(image2);
 	}
 }

@@ -7,11 +7,11 @@ import java.util.List;
 public class JpegSegment {
 	private final JpegMarker marker;
 	private final List<Byte> segment = new ArrayList<Byte>();
-	
+
 	public JpegSegment(byte marker) {
 		this.marker = JpegMarker.getInstance(marker);
 	}
-	
+
 	public JpegSegment(JpegMarker marker) {
 		this(marker.getMarker());
 	}
@@ -36,7 +36,7 @@ public class JpegSegment {
 		return out;
 	}
 
-	public final byte[] get() {
+	public final byte[] getBytes() {
 		boolean alone = JpegMarker.isAlone(marker);
 		int size = alone ? 2 : (4 + segment.size());
 		byte[] out = new byte[size];
@@ -47,12 +47,12 @@ public class JpegSegment {
 
 		if (!alone) {
 			byte[] sizeBytes = ByteBuffer.allocate(4).putInt(segment.size() + 2).array();
-			for(int i=2; i < 4; i++) {
+			for (int i = 2; i < 4; i++) {
 				out[i] = sizeBytes[i];
 			}
 
 			for (int i = 0; i < segment.size(); i++) {
-				out[i+4] = segment.get(i);
+				out[i + 4] = segment.get(i);
 			}
 		}
 		return out;

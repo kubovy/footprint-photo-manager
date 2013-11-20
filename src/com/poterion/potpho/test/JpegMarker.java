@@ -277,7 +277,7 @@ public class JpegMarker {
 		{ "FF", "INV", "INVALID" },
 	};
 
-	private final static List<Byte> ALONE = Arrays.asList(new Byte[]{ (byte) 0xD0, (byte) 0xD1, (byte) 0xD2,
+	private final static List<Byte> ALONE = Arrays.asList(new Byte[] { (byte) 0xD0, (byte) 0xD1, (byte) 0xD2,
 			(byte) 0xD3, (byte) 0xD4, (byte) 0xD5, (byte) 0xD6, (byte) 0xD7, (byte) 0xD8, (byte) 0xD9 });
 
 	private final static Map<String, String> mAbbreviation = new HashMap<String, String>(MARKERS.length);
@@ -327,7 +327,7 @@ public class JpegMarker {
 	public final static String getDescription(byte marker) {
 		return getDescription(byte2String(marker));
 	}
-	
+
 	public final static boolean isAlone(JpegMarker marker) {
 		return ALONE.contains(marker.getMarker());
 	}
@@ -355,14 +355,14 @@ public class JpegMarker {
 	}
 
 	public final byte[] get() {
-		return new byte[]{ (byte) 0xFF, b };
+		return new byte[] { (byte) 0xFF, b };
 	}
-	
+
 	@Override
 	public int hashCode() {
 		return b.hashCode();
 	}
-	
+
 	@Override
 	public boolean equals(Object obj) {
 		if (obj instanceof JpegMarker) {

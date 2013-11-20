@@ -1,6 +1,5 @@
 package com.poterion.potpho.test;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -18,51 +17,39 @@ public class ExifTag {
 			this.description = description;
 		}
 	}
-	
+
 	protected static class Number {
 		protected final int number;
-		private final Format format;
-		private final int components;
-		private final String name;
+		// private final Format format; // Not relevant, format from IFD directory will be used
+		// private final int components; // Not relevant, format from IFD directory will be used
+		protected final String name;
 
 		private Number(int number, Format format, int components, String name) {
 			this.number = number;
-			this.format = format;
-			this.components = components;
+			// this.format = format;
+			// this.components = components;
 			this.name = name;
-		}
-		
-		private final byte[] getNumberBytes() {
-			byte[] out = new byte[2];
-			byte[] sizeBytes = ByteBuffer.allocate(4).putInt(number).array();
-			for(int i=2; i < 4; i++) {
-				out[i-2] = sizeBytes[i];
-			}
-			return out;
 		}
 	}
 
-	public final static Format UNSIGNED_BYTE = new Format( 1, 1, "Unsigned Byte");
-	public final static Format ASCII_STRING = new Format( 2, 1, "ASCII String");
-	public final static Format UNSIGNED_SHORT = new Format( 3, 2, "Unsigned Short");
-	public final static Format UNSIGNED_LONG= new Format( 4, 4, "Unsigned Long");
-	public final static Format UNSIGNED_RATIONAL = new Format( 5, 8, "Unsigned Rational");
-	public final static Format SIGNED_BYTE = new Format( 6, 1, "Signed Byte");
-	public final static Format UNDEFINED = new Format( 7, 1, "Undefined");
-	public final static Format SIGNED_SHORT = new Format( 8, 2, "Signed Short");
-	public final static Format SIGNED_LONG = new Format( 9, 4, "Signed Long");
+	public final static Format UNSIGNED_BYTE = new Format(1, 1, "Unsigned Byte");
+	public final static Format ASCII_STRING = new Format(2, 1, "ASCII String");
+	public final static Format UNSIGNED_SHORT = new Format(3, 2, "Unsigned Short");
+	public final static Format UNSIGNED_LONG = new Format(4, 4, "Unsigned Long");
+	public final static Format UNSIGNED_RATIONAL = new Format(5, 8, "Unsigned Rational");
+	public final static Format SIGNED_BYTE = new Format(6, 1, "Signed Byte");
+	public final static Format UNDEFINED = new Format(7, 1, "Undefined");
+	public final static Format SIGNED_SHORT = new Format(8, 2, "Signed Short");
+	public final static Format SIGNED_LONG = new Format(9, 4, "Signed Long");
 	public final static Format SIGNED_RATIONAL = new Format(10, 8, "Signed Rational");
 	public final static Format SINGLE_FLOAT = new Format(11, 4, "Single Float");
 	public final static Format DOUBLE_FLOAT = new Format(12, 8, "Double Float");
-	
-	public final static Format[] FORMATS = new Format[] {
-		null,
-		UNSIGNED_BYTE, ASCII_STRING, UNSIGNED_SHORT, UNSIGNED_LONG, UNSIGNED_RATIONAL,
-		SIGNED_BYTE, UNDEFINED, SIGNED_SHORT, SIGNED_LONG, SIGNED_RATIONAL,
-		SINGLE_FLOAT, DOUBLE_FLOAT
-	};
 
-	public final static int EXIF_OFFSET = 0x8787;
+	public final static Format[] FORMATS = new Format[] { null, UNSIGNED_BYTE, ASCII_STRING, UNSIGNED_SHORT,
+			UNSIGNED_LONG, UNSIGNED_RATIONAL, SIGNED_BYTE, UNDEFINED, SIGNED_SHORT, SIGNED_LONG, SIGNED_RATIONAL,
+			SINGLE_FLOAT, DOUBLE_FLOAT };
+
+	public final static int EXIF_OFFSET = 0x8769;
 	public final static Map<Integer, Number> NUMBERS = new HashMap<Integer, Number>();
 	static {
 		// Tags used by IFD0 (main image)
@@ -81,7 +68,7 @@ public class ExifTag {
 		NUMBERS.put(0x0213, new Number(0x0213, UNSIGNED_SHORT, 1, "YCbCrPositioning"));
 		NUMBERS.put(0x0214, new Number(0x0214, UNSIGNED_RATIONAL, 6, "ReferenceBlackWhite"));
 		NUMBERS.put(0x8298, new Number(0x8298, ASCII_STRING, -1, "Copyright"));
-		NUMBERS.put(0x8769, new Number(0x8787, UNSIGNED_LONG, 1, "ExifOffset"));
+		NUMBERS.put(EXIF_OFFSET, new Number(EXIF_OFFSET, UNSIGNED_LONG, 1, "ExifOffset"));
 		// Tags used by Exif SubIFD
 		NUMBERS.put(0x829A, new Number(0x829A, UNSIGNED_RATIONAL, 1, "ExposureTime"));
 		NUMBERS.put(0x829D, new Number(0x829D, UNSIGNED_RATIONAL, 1, "FNumber"));
@@ -196,7 +183,7 @@ public class ExifTag {
 		NUMBERS.put(0xA40C, new Number(0xA40C, UNDEFINED, 1, "SubjectDistanceRange"));
 		NUMBERS.put(0xA420, new Number(0xA420, UNDEFINED, 1, "ImageUniqueID"));
 	};
-	
+
 	private final Number number;
 	private final Format format;
 	private final int components;
@@ -205,34 +192,25 @@ public class ExifTag {
 	private final int alignment;
 
 	public ExifTag(byte[] content, int offset, int alignment) {
-		int number = ExifSegment.getInteger(content, offset, 2, alignment);
-		this.number = NUMBERS.containsKey(number)
-				? NUMBERS.get(number)
-				: new Number(number, UNDEFINED, 1, "UNDEFINED"); 
-		this.format = FORMATS[ExifSegment.getInteger(content, offset+2, 2, alignment)];
-		this.components = ExifSegment.getInteger(content, offset+4, 4, alignment);
+		int number = JpegLib.byte2int(content, offset, 2, alignment);
+		this.number = NUMBERS.containsKey(number) ? NUMBERS.get(number) : new Number(number, UNDEFINED, 1, "UNDEFINED");
+		this.format = FORMATS[JpegLib.byte2int(content, offset + 2, 2, alignment)];
+		this.components = JpegLib.byte2int(content, offset + 4, 4, alignment);
 		this.alignment = alignment;
 		int totalBytes = this.components * format.bytesPerComponent;
 		if (totalBytes > 4) {
-			this.dataOffset = ExifSegment.getInteger(content, offset+8, 4, alignment);
-			this.data = ExifSegment.getBytes(content, this.dataOffset, totalBytes);
+			this.dataOffset = JpegLib.byte2int(content, offset + 8, 4, alignment);
+			this.data = JpegLib.bytes(content, this.dataOffset, totalBytes);
 		} else {
 			this.dataOffset = -1;
-			this.data = ExifSegment.getBytes(content, offset+8, totalBytes);
+			this.data = JpegLib.bytes(content, offset + 8, totalBytes);
 		}
-
-		String formatStr = (this.number.format.equals(format)
-				? this.format.description
-				: String.format("Format: %s/Number format: %s", this.format.description, this.number.format.description));
-		System.out.println(String.format(
-				"IFD TAG: %s [0x%04X]: \"%s\" (%s; Components: %d, Bytes per component: %d, Total: %d)",
-				this.number.name, this.number.number, getData(), formatStr, this.components, this.format.bytesPerComponent, totalBytes));
 	}
 
 	public final Number getNumber() {
 		return number;
 	}
-	
+
 	public final Format getFormat() {
 		return format;
 	}
@@ -240,21 +218,22 @@ public class ExifTag {
 	public final int getDataOffset() {
 		return dataOffset;
 	}
-	
+
 	public final byte[] getData() {
 		return data;
 	}
-	
+
 	private final List<Long> getLongs() {
 		boolean signed = (format.equals(SIGNED_BYTE) || format.equals(SIGNED_SHORT) || format.equals(SIGNED_LONG));
 		List<Long> out = new ArrayList<Long>();
-		for(int i=0; i < components; i++) {
-			Long number = ExifSegment.getNumber(data, i * format.bytesPerComponent, format.bytesPerComponent, alignment, signed);
+		for (int i = 0; i < components; i++) {
+			Long number = JpegLib.byte2long(data, i * format.bytesPerComponent, format.bytesPerComponent, alignment,
+					signed);
 			out.add(number);
 		}
 		return out;
 	}
-	
+
 	public final Long getLong() {
 		return getLongs().get(0);
 	}
@@ -262,20 +241,16 @@ public class ExifTag {
 	public final Object getObject() {
 		if (format.equals(ASCII_STRING)) {
 			StringBuilder sb = new StringBuilder();
-			for(int i=0; i < data.length; i++) {
-				if (data[i] != 0x00) { 
+			for (int i = 0; i < data.length; i++) {
+				if (data[i] != 0x00) {
 					sb.append((char) data[i]);
 				} else {
 					return sb.toString();
 				}
 			}
 			return sb.toString();
-		} else if (format.equals(SIGNED_BYTE)
-				|| format.equals(UNSIGNED_BYTE)
-				|| format.equals(SIGNED_SHORT)
-				|| format.equals(UNSIGNED_SHORT)
-				|| format.equals(SIGNED_LONG)
-				|| format.equals(UNSIGNED_LONG)) {
+		} else if (format.equals(SIGNED_BYTE) || format.equals(UNSIGNED_BYTE) || format.equals(SIGNED_SHORT)
+				|| format.equals(UNSIGNED_SHORT) || format.equals(SIGNED_LONG) || format.equals(UNSIGNED_LONG)) {
 			List<Long> out = getLongs();
 			if (out.size() == 1) {
 				return out.get(0);
@@ -290,5 +265,41 @@ public class ExifTag {
 		} else {
 		}
 		return data;
+	}
+
+	public final byte[] getBytes() {
+		byte[] out = new byte[12];
+		byte[] number = JpegLib.int2byte(this.number.number, 2, this.alignment);
+
+		for (int i = 0; i < number.length; i++) {
+			out[i] = number[i];
+		}
+
+		byte[] format = JpegLib.int2byte(this.format.value, 2, this.alignment);
+		for (int i = 0; i < format.length; i++) {
+			out[i + 2] = format[i];
+		}
+
+		byte[] components = JpegLib.int2byte(this.components, 4, this.alignment);
+		for (int i = 0; i < components.length; i++) {
+			out[i + 4] = components[i];
+		}
+
+		byte[] data;
+		if (this.data.length > 4) {
+			data = JpegLib.int2byte(this.dataOffset, 4, this.alignment);
+		} else {
+			data = this.data;
+		}
+
+		for (int i = 0; i < data.length; i++) {
+			out[i + 8] = data[i];
+		}
+
+		return out;
+	}
+
+	public final byte[] getDataAreaBytes() {
+		return (this.data.length > 4 ? this.data : new byte[0]);
 	}
 }

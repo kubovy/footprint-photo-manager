@@ -30,14 +30,14 @@ public class JpegImage {
 	public final int getSegmentCount(JpegMarker marker) {
 		return getSegment(marker).size();
 	}
-	
+
 	public final JpegSegment getSegment(JpegMarker marker, int index) {
 		return getSegment(marker).get(index);
 	}
-	
+
 	public final List<JpegSegment> getSegment(JpegMarker marker) {
 		List<JpegSegment> out = new ArrayList<JpegSegment>();
-		for(JpegSegment segment : segments) {
+		for (JpegSegment segment : segments) {
 			if (segment.getMarker().equals(marker)) {
 				out.add(segment);
 			}
@@ -47,7 +47,7 @@ public class JpegImage {
 
 	public final ExifSegment getExifSegment() {
 		List<JpegSegment> segments = getSegment(JpegMarker.getInstance("APP01"));
-		for(JpegSegment segment : segments) {
+		for (JpegSegment segment : segments) {
 			ExifSegment exif = ExifSegment.getInstance(segment.getData());
 			if (exif != null) {
 				return exif;
@@ -55,7 +55,7 @@ public class JpegImage {
 		}
 		return null;
 	}
-	
+
 	public final void read() {
 		File file = new File(filename);
 		byte[] buffer = new byte[8196]; // buffer
@@ -89,7 +89,7 @@ public class JpegImage {
 									segments.add(segment);
 									state = DEFAULT;
 								} else {
-									sizeBytes = new Byte[]{ null, null };
+									sizeBytes = new Byte[] { null, null };
 									state = SIZE;
 								}
 							}
@@ -116,12 +116,13 @@ public class JpegImage {
 						} else if (state == STREAM) {
 							stream.add(buffer[i]);
 						} else {
-							throw new RuntimeException("Invalid state " + state + " read: " + String.format("%02X", buffer[i]) + "!");
+							throw new RuntimeException("Invalid state " + state + " read: "
+									+ String.format("%02X", buffer[i]) + "!");
 						}
 					}
 				} while (bytesRead >= 0);
-				stream.remove(stream.size()-1);
-				stream.remove(stream.size()-1);
+				stream.remove(stream.size() - 1);
+				stream.remove(stream.size() - 1);
 				segments.add(new JpegSegment(JpegMarker.EOI));
 			} finally {
 				input.close();
@@ -139,24 +140,18 @@ public class JpegImage {
 
 	public final void write(String filename) {
 		File file = new File(filename);
-		OutputStream output = null;
-		try {
-			try {
-				output = new BufferedOutputStream(new FileOutputStream(file));
-				for (JpegSegment segment : segments) {
-					if (ExifSegment.isExif(segment.getData())) {
-						output.write(getExifSegment().getBytes());
-					} else {
-						output.write(segment.get());
-					}
-					if (segment.getMarker().equals(JpegMarker.SOS)) {
-						for (byte b : stream) {
-							output.write(new byte[]{b});
-						}
+		try (OutputStream output = new BufferedOutputStream(new FileOutputStream(file))) {
+			for (JpegSegment segment : segments) {
+				if (ExifSegment.isExif(segment.getData())) {
+					output.write(getExifSegment().getBytes());
+				} else {
+					output.write(segment.getBytes());
+				}
+				if (segment.getMarker().equals(JpegMarker.SOS)) {
+					for (byte b : stream) {
+						output.write(new byte[] { b });
 					}
 				}
-			} finally {
-				output.close();
 			}
 		} catch (FileNotFoundException ex) {
 			System.err.println(String.format("File %s not found.", filename));
