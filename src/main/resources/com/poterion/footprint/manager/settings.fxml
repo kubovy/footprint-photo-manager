@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<BorderPane maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity"
+            minWidth="-Infinity" prefHeight="250.0" prefWidth="700.0" xmlns="http://javafx.com/javafx/10.0.1"
+            xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.poterion.footprint.manager.ui.SettingsController">
+    <center>
+        <GridPane hgap="5.0" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity" vgap="5.0">
+            <columnConstraints>
+                <ColumnConstraints hgrow="NEVER" maxWidth="1.7976931348623157E308" minWidth="-Infinity"/>
+                <ColumnConstraints hgrow="SOMETIMES" maxWidth="1.7976931348623157E308" minWidth="-Infinity"/>
+            </columnConstraints>
+            <rowConstraints>
+                <RowConstraints maxHeight="1.7976931348623157E308" minHeight="-Infinity" vgrow="NEVER"/>
+                <RowConstraints maxHeight="1.7976931348623157E308" minHeight="-Infinity" vgrow="NEVER"/>
+                <RowConstraints maxHeight="1.7976931348623157E308" minHeight="-Infinity" vgrow="NEVER"/>
+                <RowConstraints maxHeight="1.7976931348623157E308" minHeight="10.0" prefHeight="30.0" vgrow="NEVER"/>
+            </rowConstraints>
+            <children>
+                <Label maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity"
+                       minWidth="-Infinity" text="Folder Pattern"/>
+                <TextField fx:id="textFolderPattern"
+                           text="\%yyyy/%DATESPAN(yyyy, mm, dd) - %TITLE/%yyyy-%mm-%dd-%NUM(4).%ext"
+                           GridPane.columnIndex="1" GridPane.hgrow="ALWAYS"/>
+                <Label fx:id="labelFolderPatternExplanation" alignment="TOP_LEFT" maxHeight="1.7976931348623157E308"
+                       maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity" prefWidth="100.0"
+                       text="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim \n id est laborum."
+                       wrapText="true" GridPane.columnIndex="1" GridPane.hgrow="NEVER" GridPane.rowIndex="2"/>
+                <Label maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity"
+                       minWidth="-Infinity" text="Autoplay Videos" GridPane.rowIndex="3"/>
+                <CheckBox fx:id="checkboxAutoplayVideos" mnemonicParsing="false" selected="true"
+                          GridPane.columnIndex="1" GridPane.rowIndex="3"/>
+                <Label maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity"
+                       minWidth="-Infinity" text="Example: 2019/2019-12-04-28 - Title/2019-12-05-0004.jpg"
+                       GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+            </children>
+            <BorderPane.margin>
+                <Insets bottom="5.0" left="5.0" right="5.0" top="5.0"/>
+            </BorderPane.margin>
+        </GridPane>
+    </center>
+    <bottom>
+        <HBox alignment="CENTER_RIGHT" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308"
+              minHeight="-Infinity" minWidth="-Infinity" spacing="5.0" BorderPane.alignment="CENTER">
+            <children>
+                <Button fx:id="btnCancel" cancelButton="true" mnemonicParsing="false" onAction="#onCancel"
+                        text="Cancel"/>
+                <Button fx:id="btnApply" defaultButton="true" mnemonicParsing="false" onAction="#onApply" text="Apply"/>
+            </children>
+            <BorderPane.margin>
+                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0"/>
+            </BorderPane.margin>
+        </HBox>
+    </bottom>
+</BorderPane>
