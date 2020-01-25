@@ -1,16 +1,25 @@
 package com.poterion.footprint.manager.utils
 
+import com.poterion.footprint.manager.Icons
 import com.poterion.footprint.manager.data.Device
 import com.poterion.footprint.manager.data.MediaItem
 import com.poterion.footprint.manager.data.MetadataTag
 import com.poterion.footprint.manager.data.Notification
-import com.poterion.footprint.manager.enums.Icons
 import com.poterion.footprint.manager.enums.NotificationType
 import java.net.URLDecoder
 
 /**
  * @author Jan Kubovy [jan@kubovy.eu]
  */
+val Notification.device: Device?
+	get() = deviceId?.let { Database.get(Device::class, it) }
+
+val Notification.mediaItem: MediaItem?
+	get() = mediaItemId?.let { Database.get(MediaItem::class, it) }
+
+val Notification.metadataTag: MetadataTag?
+	get() = metadataTagId?.let { Database.get(MetadataTag::class, it) }
+
 fun Notification.toIcon(): Icons = type.toIcon()
 
 fun NotificationType.toIcon(): Icons = when (this) {

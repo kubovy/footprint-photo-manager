@@ -33,15 +33,15 @@
       </VBox>
    </top>
    <center>
-       <SplitPane dividerPositions="0.6" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308"
-                  minHeight="-Infinity" minWidth="-Infinity" BorderPane.alignment="CENTER">
+       <SplitPane dividerPositions="0.6210350584307178" maxHeight="1.7976931348623157E308"
+                  maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity"
+                  BorderPane.alignment="CENTER">
            <items>
                <ScrollPane fitToHeight="true" fitToWidth="true" maxHeight="1.7976931348623157E308"
                            maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity">
                    <content>
                        <TreeTableView fx:id="tableData" maxHeight="1.7976931348623157E308"
-                                      maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity"
-                                      showRoot="false">
+                                      maxWidth="1.7976931348623157E308" showRoot="false">
                            <columns>
                                <TreeTableColumn fx:id="columnDataName" editable="false"
                                                 maxWidth="1.7976931348623157E308" minWidth="73.0" prefWidth="83.0"

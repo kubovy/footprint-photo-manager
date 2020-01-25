@@ -2,7 +2,7 @@ package com.poterion.footprint.manager.workers
 
 import com.poterion.footprint.manager.data.MediaItem
 import com.poterion.footprint.manager.utils.getVideoThumbnail
-import com.poterion.footprint.manager.utils.toImage
+import com.poterion.utils.javafx.toImage
 import javafx.scene.Node
 import javafx.scene.media.Media
 import javafx.scene.media.MediaPlayer

@@ -3,7 +3,7 @@ package com.poterion.footprint.manager.ui
 import com.poterion.footprint.manager.data.Setting
 import com.poterion.footprint.manager.utils.Database
 import com.poterion.footprint.manager.utils.Settings
-import com.poterion.footprint.manager.utils.process
+import com.poterion.utils.kotlin.intermediate
 import javafx.event.ActionEvent
 import javafx.fxml.FXML
 import javafx.fxml.FXMLLoader
@@ -98,7 +98,7 @@ class SettingsController {
 	fun onApply(event: ActionEvent) {
 		result = listOf(Setting.FOLDER_PATTERN, Setting.AUTOPLAY_VIDEOS)
 			.map { name -> Database.list(Setting::class).find { it.name == name } ?: Setting(name = name) }
-			.process { setting ->
+			.intermediate { setting ->
 				setting.value = when (setting.name) {
 					Setting.FOLDER_PATTERN -> textFolderPattern.text
 					Setting.AUTOPLAY_VIDEOS -> checkboxAutoplayVideos.isSelected.let { if (it) "true" else "false" }

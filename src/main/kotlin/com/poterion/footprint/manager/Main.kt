@@ -4,10 +4,10 @@ import com.poterion.footprint.manager.data.Device
 import com.poterion.footprint.manager.data.Setting
 import com.poterion.footprint.manager.ui.PasswordDialog
 import com.poterion.footprint.manager.utils.Database
-import com.poterion.footprint.manager.utils.decrypt
-import com.poterion.footprint.manager.utils.encrypt
-import com.poterion.footprint.manager.utils.setPasswordForEncryption
 import com.poterion.footprint.manager.xuggle.SmbFileProtocolHandlerFactory
+import com.poterion.utils.kotlin.decrypt
+import com.poterion.utils.kotlin.encrypt
+import com.poterion.utils.kotlin.setPasswordForEncryption
 import com.xuggle.xuggler.io.URLProtocolManager
 import javafx.application.Application
 import javafx.application.Platform

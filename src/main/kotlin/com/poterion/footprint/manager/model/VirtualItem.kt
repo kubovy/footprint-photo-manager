@@ -1,7 +1,7 @@
 package com.poterion.footprint.manager.model
 
+import com.poterion.footprint.manager.Icons
 import com.poterion.footprint.manager.data.UriItem
-import com.poterion.footprint.manager.enums.Icons
 
 /**
  * @author Jan Kubovy [jan@kubovy.eu]

@@ -1,0 +1,6 @@
+[submodule "javafx-utils"]
+	path = javafx-utils
+	url = git@github.com:kubovy/javafx-utils.git
+[submodule "kotlin-utils"]
+	path = kotlin-utils
+	url = git@github.com:kubovy/kotlin-utils.git

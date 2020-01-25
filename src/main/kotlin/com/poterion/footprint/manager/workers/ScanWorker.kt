@@ -13,6 +13,7 @@ import com.poterion.footprint.manager.enums.VideoFormat
 import com.poterion.footprint.manager.model.FileObject
 import com.poterion.footprint.manager.model.Progress
 import com.poterion.footprint.manager.utils.*
+import com.poterion.utils.kotlin.*
 import jcifs.smb.SmbAuthException
 import jcifs.smb.SmbFile
 import org.slf4j.LoggerFactory
@@ -102,7 +103,7 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 
 				unscanned
 					.chunked(CHUNK_SIZE)
-					.parallelStreamProcess(PROCESSING_PARALLELISM) { mediaItems ->
+					.parallelStreamIntermediate(PROCESSING_PARALLELISM) { mediaItems ->
 						for (mediaItem in mediaItems) {
 							update(progress.apply { progress.getAndIncrement() } to mediaItem)
 							mediaItem.useSambaCacheThumbnail()
@@ -112,7 +113,7 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 
 				scanned
 					.chunked(CHUNK_SIZE)
-					.parallelStreamProcess { mediaItems ->
+					.parallelStreamIntermediate { mediaItems ->
 						for (mediaItem in mediaItems) {
 							update(progress.apply { progress.getAndIncrement() } to mediaItem)
 							mediaItem.process(force)
@@ -274,7 +275,7 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 			?: emptyList()
 	} catch (t: Throwable) {
 		LOGGER.error("${this}: ${t.message}", t)
-		val mediaItem = getMediaItem()
+		val mediaItem = toMediaItemOrNull()
 		Notifications.notify(value = t.message ?: "${t::class.java.simpleName} occurred while scanning.",
 							 type = NotificationType.SCAN_PROBLEM,
 							 name = "${this}",
@@ -310,7 +311,7 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 			retries++
 		}
 		if (result == null) {
-			val mediaItem = getMediaItem()
+			val mediaItem = toMediaItemOrNull()
 			Notifications.notify(
 					value = lastError?.message ?: "${lastError?.javaClass?.simpleName
 						?: "Unknown error"} while scanning.",

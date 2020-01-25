@@ -2,7 +2,6 @@ package com.poterion.footprint.manager
 
 import com.poterion.footprint.manager.data.*
 import com.poterion.footprint.manager.enums.DeviceType
-import com.poterion.footprint.manager.enums.Icons
 import com.poterion.footprint.manager.model.MultiProgress
 import com.poterion.footprint.manager.model.Progress
 import com.poterion.footprint.manager.model.ThumbnailBin
@@ -12,6 +11,9 @@ import com.poterion.footprint.manager.ui.ProgressDialog
 import com.poterion.footprint.manager.ui.SettingsController
 import com.poterion.footprint.manager.utils.*
 import com.poterion.footprint.manager.workers.*
+import com.poterion.utils.javafx.*
+import com.poterion.utils.kotlin.intermediate
+import com.poterion.utils.kotlin.toFormattedDuration
 import javafx.application.Platform
 import javafx.beans.property.SimpleObjectProperty
 import javafx.collections.FXCollections
@@ -173,7 +175,7 @@ class ManagerController {
 //			?: Setting(name = Setting.COLUMN_DATA_NAME_WIDTH, value = "${100.0}")
 //		columnDataName.prefWidth = columnDataNameWidth.value?.toDoubleOrNull() ?: 100.0
 //		columnDataName.widthProperty().addListener { _, _, v -> Database.save(columnDataNameWidth.apply { value = "${v}" }) }
-		columnDataName.cell("name") { _, item, value, empty ->
+		columnDataName.cell("name") { item, value, empty ->
 			text = value?.takeUnless { empty }?.removeSuffix("/")?.let { URLDecoder.decode(it, "UTF-8") }
 			graphic = StackPane().takeUnless { empty }?.apply {
 				prefWidth = 16.0
@@ -236,11 +238,11 @@ class ManagerController {
 
 		treeViewNotifications.root = TreeItem(Notification.ROOT)
 
-		treeViewNotifications.cell { item, value, empty ->
+		treeViewNotifications.cell { _, value, empty ->
 			graphic = value?.takeUnless { empty }?.toIcon()?.toImageView()
 			text = value?.takeUnless { empty }?.displayName
 			tooltip = value?.takeUnless { empty }?.value?.let { Tooltip(it) }
-			contextMenu = value?.takeUnless { empty }?.createContextMenu2()
+			contextMenu = value?.takeUnless { empty }?.createContextMenu()
 		}
 		tabPane.selectionModel.select(tabNotifications)
 
@@ -249,7 +251,10 @@ class ManagerController {
 
 	private fun start() {
 		Notifications.subject.sample(2, TimeUnit.SECONDS).subscribe { notifications ->
-			Platform.runLater { treeViewNotifications.addAll(notifications) }
+			Platform.runLater {
+				treeViewNotifications.root.children.clear()
+				treeViewNotifications.addAll(notifications)
+			}
 		}
 
 		updateDataTree()
@@ -378,7 +383,7 @@ class ManagerController {
 			if (result == ButtonType.YES) {
 				Database.deleteAll(toDelete)
 				tableData.root
-					.findAll { treeItem -> toDelete.map { it.id }.contains(treeItem.value.id) }
+					.findAll { item -> toDelete.map { it.id }.contains(item.id) }
 					.forEach { it.parent.children.remove(it) }
 			}
 		}
@@ -525,7 +530,7 @@ class ManagerController {
 				.keys
 				.sortedBy { it.value.name }
 			tableMetadata.root.children.setAll(metadataItems)
-			tableMetadata.root.expand()
+			tableMetadata.root.expandTree()
 		}
 	}
 
@@ -698,12 +703,12 @@ class ManagerController {
 					sliderPreviewPosition.min = 0.0
 					sliderPreviewPosition.value = 0.0
 					sliderPreviewPosition.max = 0.0
-					labelPreviewStart.text = 0.formatDurationMillis()
-					labelPreviewCurrent.text = 0.formatDurationMillis()
-					labelPreviewEnd.text = 0.formatDurationMillis()
+					labelPreviewStart.text = 0.toFormattedDuration()
+					labelPreviewCurrent.text = 0.toFormattedDuration()
+					labelPreviewEnd.text = 0.toFormattedDuration()
 
 					mediaPlayer?.setOnReady {
-						labelPreviewEnd.text = mediaPlayer?.totalDuration?.toMillis()?.formatDurationMillis()
+						labelPreviewEnd.text = mediaPlayer?.totalDuration?.toMillis()?.toFormattedDuration()
 						sliderPreviewPosition.min = 0.0
 						sliderPreviewPosition.value = 0.0
 						sliderPreviewPosition.max = mediaPlayer?.totalDuration?.toMillis() ?: 0.0
@@ -716,7 +721,7 @@ class ManagerController {
 
 					mediaPlayer?.currentTimeProperty()?.addListener { _, _, position ->
 						sliderPreviewPosition.value = position.toMillis()
-						labelPreviewCurrent.text = position.toMillis().formatDurationMillis()
+						labelPreviewCurrent.text = position.toMillis().toFormattedDuration()
 					}
 
 					sliderPreviewPosition.setOnMousePressed {
@@ -781,7 +786,7 @@ class ManagerController {
 					.showAndWait()
 					?.orElse(ButtonType.NO)
 				if (result == ButtonType.YES) {
-					val devices = Database.list(Device::class).process { it.isPrimary = id == it.id }
+					val devices = Database.list(Device::class).intermediate { it.isPrimary = id == it.id }
 					Database.saveAll(devices)
 					buttonFindDuplicates.isDisable = false
 					tableData.refresh()
@@ -797,10 +802,10 @@ class ManagerController {
 	}
 
 
-	private fun Notification.createContextMenu2(): ContextMenu? {
+	private fun Notification.createContextMenu(): ContextMenu? {
 		val menuItems = mutableListOf<MenuItem>()
 		menuItems.add(createContextMenuItem("Dismiss", Icons.TRASH) {
-			val treeItem = treeViewNotifications.root.find { it.value == this }
+			val treeItem = treeViewNotifications.root.find { it == this@createContextMenu }
 			if (treeItem != null) {
 				treeItem.parent.children.remove(treeItem)
 				Database.delete(this)

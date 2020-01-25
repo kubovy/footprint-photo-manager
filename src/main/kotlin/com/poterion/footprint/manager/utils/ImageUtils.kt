@@ -1,24 +1,22 @@
 package com.poterion.footprint.manager.utils
 
+import com.poterion.footprint.manager.Icons
 import com.poterion.footprint.manager.Main
 import com.poterion.footprint.manager.data.Device
 import com.poterion.footprint.manager.data.MediaItem
 import com.poterion.footprint.manager.data.UriItem
 import com.poterion.footprint.manager.enums.DeviceType
-import com.poterion.footprint.manager.enums.Icons
 import com.poterion.footprint.manager.model.VirtualItem
 import com.poterion.footprint.manager.xuggle.ImageSnapListener
+import com.poterion.utils.kotlin.fileExtension
+import com.poterion.utils.kotlin.measureTime
 import com.xuggle.mediatool.IMediaReader
 import com.xuggle.mediatool.ToolFactory
-import javafx.scene.image.Image
-import javafx.scene.image.ImageView
 import net.coobird.thumbnailator.Thumbnails
 import org.slf4j.LoggerFactory
 import java.awt.Dimension
 import java.awt.image.BufferedImage
 import java.io.File
-import java.io.FileInputStream
-import java.io.InputStream
 import java.nio.file.Paths
 import javax.imageio.IIOImage
 import javax.imageio.ImageIO
@@ -31,23 +29,6 @@ import javax.imageio.stream.MemoryCacheImageOutputStream
  */
 private val LOGGER = LoggerFactory.getLogger("com.poterion.footprint.manager.utils.ImageUtils")
 const val THUMBNAIL_BBOX = 500
-
-fun InputStream.toImage(width: Int = 0, height: Int = 0) = use {
-	Image(it, width.toDouble(), height.toDouble(), true, true)
-}
-
-fun File.toImage(width: Int = 0, height: Int = 0) = FileInputStream(this)
-	.use { it.toImage(width, height) }
-
-val Icons.inputStream: InputStream
-	get() = Icons::class.java
-		.getResourceAsStream("/com/poterion/footprint/manager/icons/${name.toLowerCase()}.png")
-
-fun Icons.toImage(width: Int = 16, height: Int = 16): Image =
-	inputStream.toImage(width, height)
-
-fun Icons.toImageView(width: Int = 16, height: Int = 16): ImageView =
-	ImageView(toImage(width, height))
 
 fun UriItem.icon() = when {
 	this is Device -> when (type) {
@@ -219,7 +200,8 @@ fun MediaItem.getCachedImage(width: Int = 0, height: Int = 0): File {
 
 fun MediaItem.getImageThumbnail(width: Int = 0, height: Int = 0): File =
 	getCachedImage(width, height).let { cachedFile ->
-		if (!cachedFile.exists() || cachedFile.length() == 0L) measureTime("Thumbnail ${cachedFile} generated") {
+		if (!cachedFile.exists() || cachedFile.length() == 0L) measureTime(
+				"Thumbnail ${cachedFile} generated") {
 			writeThumbnail(cachedFile, toFileObject()?.extension?.toLowerCase() ?: "", width, height)
 		}
 		cachedFile

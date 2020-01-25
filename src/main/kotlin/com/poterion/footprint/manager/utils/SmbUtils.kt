@@ -1,5 +1,6 @@
 package com.poterion.footprint.manager.utils
 
+import com.poterion.utils.kotlin.fileExtension
 import jcifs.smb.SmbFile
 
 /**

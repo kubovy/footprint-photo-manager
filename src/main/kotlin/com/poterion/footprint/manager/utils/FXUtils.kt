@@ -1,100 +1,39 @@
 package com.poterion.footprint.manager.utils
 
+import com.poterion.footprint.manager.Icons
 import com.poterion.footprint.manager.data.*
 import com.poterion.footprint.manager.enums.DeviceType
-import com.poterion.footprint.manager.enums.Icons
 import com.poterion.footprint.manager.enums.NotificationType
 import com.poterion.footprint.manager.model.VirtualItem
-import javafx.beans.property.BooleanProperty
-import javafx.beans.property.SimpleObjectProperty
-import javafx.beans.value.ObservableValue
-import javafx.scene.control.*
-import javafx.scene.control.cell.TreeItemPropertyValueFactory
-import javafx.util.Callback
+import com.poterion.utils.javafx.monitorExpansion
+import com.poterion.utils.kotlin.ensureSuffix
+import javafx.scene.control.TreeItem
+import javafx.scene.control.TreeTableView
+import javafx.scene.control.TreeView
 import java.util.*
 
 /**
  * @author Jan Kubovy [jan@kubovy.eu]
  */
 
-fun <T> TreeView<T>.cell(factory: TreeCell<T>.(TreeItem<T>?, T?, Boolean) -> Unit) {
-	cellFactory = Callback<TreeView<T>, TreeCell<T>> {
-		object : TreeCell<T>() {
-			override fun updateItem(item: T, empty: Boolean) {
-				super.updateItem(item, empty)
-				factory(treeItem, item, empty)
+private fun <T> TreeItem<T>.monitorExpansion(key: T.() -> String?) = monitorExpansion(
+		{
+			Database.list(Setting::class)
+				.any { it.name == Setting.EXPANDED && it.value == value.key() }
+		},
+		{ item, expanded ->
+			if (item != null) {
+				val previous = Database.list(Setting::class)
+					.find { it.name == Setting.EXPANDED && it.value == item.key() }
+
+				if (expanded) (previous ?: Setting(name = Setting.EXPANDED))
+					.apply { value = item.key() }
+					.also { Database.save(it) }
+				else previous
+					?.also { Database.delete(it) }
 			}
 		}
-	}
-}
-
-fun <T> TreeItem<T>.expand(predicate: (TreeItem<T>) -> Boolean = { true }) {
-	if (!isLeaf) {
-		isExpanded = true
-		for (child in children) child.expand(predicate)
-	}
-}
-
-fun <T> TreeItem<T>.find(predicate: (TreeItem<T>) -> Boolean): TreeItem<T>? = findAll(predicate)
-	.firstOrNull()
-
-fun <T> TreeItem<T>.findAll(predicate: (TreeItem<T>) -> Boolean): Collection<TreeItem<T>> {
-	val result = mutableListOf<TreeItem<T>>()
-	if (!isLeaf) {
-		for (child in children) result.addAll(child.findAll(predicate))
-	}
-	if (predicate(this)) result.add(this)
-	return result
-}
-
-private fun <T> TreeItem<T>.monitorExpansion(key: T.() -> String?) = apply {
-	isExpanded = Database.list(Setting::class)
-		.any { it.name == Setting.EXPANDED && it.value == value.key() }
-
-	expandedProperty().addListener { observable, _, expanded ->
-		(((observable as? BooleanProperty)?.bean as? TreeItem<*>)?.value as? T)?.key()?.also { key ->
-			val previous = Database.list(Setting::class)
-				.find { it.name == Setting.EXPANDED && it.value == key }
-
-			if (expanded) (previous ?: Setting(name = Setting.EXPANDED))
-				.apply { value = key }
-				.also { Database.save(it) }
-			else previous
-				?.also { Database.delete(it) }
-		}
-	}
-}
-
-private fun <S, T> TreeTableColumn<S, T>.cellFactoryInternal(factory: (TreeTableCell<S, T>.(TreeItem<S>?, S?, T?, Boolean) -> Unit)? = null) {
-	if (factory != null) cellFactory = Callback<TreeTableColumn<S, T>, TreeTableCell<S, T>> {
-		object : TreeTableCell<S, T>() {
-			override fun updateItem(item: T?, empty: Boolean) {
-				super.updateItem(item, empty)
-				this.factory(treeTableRow.treeItem, treeTableRow.item, item, empty)
-			}
-		}
-	}
-}
-
-fun <S, T> TreeTableColumn<S, T>.cell(property: String,
-									  factory: (TreeTableCell<S, T>.(TreeItem<S>?, S?, T?, Boolean) -> Unit)? = null) {
-	cellValueFactory = TreeItemPropertyValueFactory<S, T>(property)
-	cellFactoryInternal(factory)
-}
-
-fun <S, T> TreeTableColumn<S, T>.cell(getter: TreeTableColumn<S, T>.(TreeTableColumn.CellDataFeatures<S, T>?) -> T?) {
-	cellValueFactory = Callback<TreeTableColumn.CellDataFeatures<S, T>, ObservableValue<T>> { param ->
-		this.getter(param)?.let { SimpleObjectProperty(it) }
-	}
-}
-
-fun <S, T> TreeTableColumn<S, T>.cell(getter: TreeTableColumn<S, T>.(TreeTableColumn.CellDataFeatures<S, T>?) -> T?,
-									  factory: (TreeTableCell<S, T>.(TreeItem<S>?, S?, T?, Boolean) -> Unit)? = null) {
-	cellValueFactory = Callback<TreeTableColumn.CellDataFeatures<S, T>, ObservableValue<T>> { param ->
-		this.getter(param)?.let { SimpleObjectProperty(it) }
-	}
-	cellFactoryInternal(factory)
-}
+)
 
 fun TreeItem<UriItem>.getParentItem(mediaItem: MediaItem): TreeItem<UriItem>? {
 	var parentItem: TreeItem<UriItem>? = takeIf { it.value?.id == mediaItem.deviceId }

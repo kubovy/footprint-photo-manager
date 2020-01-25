@@ -1,8 +1,8 @@
 package com.poterion.footprint.manager.ui
 
+import com.poterion.footprint.manager.Icons
 import com.poterion.footprint.manager.Main
-import com.poterion.footprint.manager.enums.Icons
-import com.poterion.footprint.manager.utils.toImageView
+import com.poterion.utils.javafx.toImageView
 import javafx.application.Platform
 import javafx.beans.value.ObservableValue
 import javafx.geometry.Insets

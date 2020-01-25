@@ -1,9 +1,11 @@
-package com.poterion.footprint.manager.enums
+package com.poterion.footprint.manager
+
+import com.poterion.utils.javafx.Icon
 
 /**
  * @author Jan Kubovy [jan@kubovy.eu]
  */
-enum class Icons {
+enum class Icons : Icon {
 	CAMERA,
 	CLOUD,
 	DRONE,

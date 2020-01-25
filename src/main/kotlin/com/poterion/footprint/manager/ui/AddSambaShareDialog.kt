@@ -1,9 +1,13 @@
 package com.poterion.footprint.manager.ui
 
+import com.poterion.footprint.manager.Icons
 import com.poterion.footprint.manager.data.Device
 import com.poterion.footprint.manager.enums.DeviceType
-import com.poterion.footprint.manager.enums.Icons
-import com.poterion.footprint.manager.utils.*
+import com.poterion.footprint.manager.utils.Database
+import com.poterion.footprint.manager.utils.toUriOrNull
+import com.poterion.footprint.manager.utils.usernamePassword
+import com.poterion.utils.javafx.toImageView
+import com.poterion.utils.kotlin.encrypt
 import javafx.application.Platform
 import javafx.beans.value.ObservableValue
 import javafx.geometry.Insets
