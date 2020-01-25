@@ -1,0 +1,4 @@
+rootProject.name = 'manager'
+include 'kotlin-utils'
+include 'javafx-utils'
+

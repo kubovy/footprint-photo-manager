@@ -1,0 +1,56 @@
+package com.poterion.footprint.manager
+
+import com.poterion.utils.javafx.Icon
+
+/**
+ * @author Jan Kubovy [jan@kubovy.eu]
+ */
+enum class Icons : Icon {
+	CAMERA,
+	CLOUD,
+	DRONE,
+	DROPBOX,
+	FOLDER,
+	FOLDER_PICTURE,
+	FOLDER_VIDEO,
+	FOLDER_WRONG,
+	GOOGLE_PHOTOS,
+	HDD,
+	MICRO_SD,
+	NETWORK_DRIVE,
+	PANORAMA,
+	PICTURE,
+	SD,
+	SSD,
+	VIDEO,
+	VIDEO_4K,
+	VIDEO_480,
+	VIDEO_720,
+	VIDEO_1080,
+
+	ICON,
+	LOCK,
+	UNLOCK,
+	NAS,
+	PRIMARY,
+	TRASH,
+	SETTINGS,
+
+	STAR,
+	OK,
+	DUPLICATE,
+	INVALID_DATE,
+	METADATA,
+	MISSING_IN_PRIMARY,
+	MISSING_LOCATION,
+	PROCESS,
+	SCAN_PROBLEM,
+	UNAVAILABLE,
+	UNKNOWN,
+	WARNING,
+
+	PLAY,
+	PAUSE,
+	SCAN,
+	SYNCHRONIZE
+}

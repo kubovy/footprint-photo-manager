@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.media.MediaView?>
+<?import javafx.scene.shape.Rectangle?>
+<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="600.0"
+            prefWidth="1200.0" xmlns="http://javafx.com/javafx/10.0.1" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.poterion.footprint.manager.ManagerController">
+    <top>
+        <VBox BorderPane.alignment="CENTER">
+            <children>
+                <ToolBar maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity"
+                         minWidth="-Infinity">
+                    <items>
+                        <Button fx:id="buttonAddFolder" mnemonicParsing="false" onAction="#onAddFolder"
+                                text="Add Folder"/>
+                        <Button fx:id="buttonAddSharedFolder" mnemonicParsing="false" onAction="#onAddSharedFolder"
+                                text="Add Shared Folder"/>
+                        <Button fx:id="buttonSynchronize" mnemonicParsing="false" onAction="#onSynchronize"
+                                text="Synchronize"/>
+                        <Button fx:id="buttonFindDuplicates" mnemonicParsing="false" onAction="#onFindDuplicates"
+                                text="Find Duplicates"/>
+                        <Button fx:id="buttonInclude" mnemonicParsing="false" onAction="#onInclude" text="Include"/>
+                        <Button fx:id="buttonExclude" mnemonicParsing="false" onAction="#onExclude" text="Exclude"/>
+                        <Button fx:id="buttonRemove" mnemonicParsing="false" onAction="#onRemove" text="Remove"/>
+                        <Button fx:id="buttonSettings" mnemonicParsing="false" onAction="#onSettings" text="Settings"/>
+                    </items>
+            </ToolBar>
+         </children>
+      </VBox>
+   </top>
+   <center>
+       <SplitPane dividerPositions="0.6210350584307178" maxHeight="1.7976931348623157E308"
+                  maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity"
+                  BorderPane.alignment="CENTER">
+           <items>
+               <ScrollPane fitToHeight="true" fitToWidth="true" maxHeight="1.7976931348623157E308"
+                           maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity">
+                   <content>
+                       <TreeTableView fx:id="tableData" maxHeight="1.7976931348623157E308"
+                                      maxWidth="1.7976931348623157E308" showRoot="false">
+                           <columns>
+                               <TreeTableColumn fx:id="columnDataName" editable="false"
+                                                maxWidth="1.7976931348623157E308" minWidth="73.0" prefWidth="83.0"
+                                                sortable="false" text="Name"/>
+                               <TreeTableColumn fx:id="columnDataDates" editable="false"
+                                                maxWidth="1.7976931348623157E308" minWidth="305.0" prefWidth="357.0"
+                                                resizable="false" sortable="false" text="Dates">
+                                   <columns>
+                                       <TreeTableColumn fx:id="columnDataCreationDate" editable="false"
+                                                        maxWidth="1.7976931348623157E308" minWidth="170.0"
+                                                        prefWidth="-1.0" resizable="false" sortable="false"
+                                                        text="Creation"/>
+                                       <TreeTableColumn fx:id="columnDataModificationDate" editable="false"
+                                                        maxWidth="1.7976931348623157E308" minWidth="170.0"
+                                                        prefWidth="-1.0" resizable="false" sortable="false"
+                                                        text="Modification"/>
+                                   </columns>
+                               </TreeTableColumn>
+                               <TreeTableColumn fx:id="columnDataResolution" editable="false"
+                                                maxWidth="1.7976931348623157E308" minWidth="85.0" prefWidth="-1.0"
+                                                resizable="false" sortable="false" text="Resolution"/>
+                               <TreeTableColumn fx:id="columnDataLocation" editable="false"
+                                                maxWidth="1.7976931348623157E308" minWidth="230.0" prefWidth="-1.0"
+                                                resizable="false" sortable="false" text="Location"/>
+                           </columns>
+                  </TreeTableView>
+              </content>
+            </ScrollPane>
+            <TabPane fx:id="tabPane">
+               <tabs>
+                  <Tab fx:id="tabThumbnails" closable="false" text="Thumbnails">
+                     <content>
+                        <BorderPane maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity">
+                           <center>
+                              <ScrollPane fitToWidth="true" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity" prefHeight="1.0" BorderPane.alignment="CENTER">
+                                 <content>
+                                    <VBox fx:id="vboxThumbnails" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity">
+                                       <children>
+                                          <TitledPane prefHeight="200.0" prefWidth="200.0">
+                                             <content>
+                                                <FlowPane maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity">
+                                                   <children>
+                                                      <ImageView fitHeight="200.0" fitWidth="200.0" pickOnBounds="true" preserveRatio="true" style="-fx-background-color: red;" />
+                                                      <ImageView fitHeight="150.0" fitWidth="200.0" pickOnBounds="true" preserveRatio="true">
+                                                         <FlowPane.margin>
+                                                            <Insets />
+                                                         </FlowPane.margin>
+                                                      </ImageView>
+                                                      <StackPane>
+                                                         <children>
+                                                            <Rectangle arcHeight="5.0" arcWidth="5.0" fill="DODGERBLUE" height="215.0" stroke="BLACK" strokeType="INSIDE" strokeWidth="0.0" width="215.0">
+                                                               <StackPane.margin>
+                                                                  <Insets />
+                                                               </StackPane.margin>
+                                                            </Rectangle>
+                                                            <StackPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity">
+                                                               <children>
+                                                                  <Pane style="-fx-background-color: white; -fx-border-color: black;" />
+                                                                   <ImageView fitHeight="150.0" fitWidth="200.0"
+                                                                              pickOnBounds="true" preserveRatio="true">
+                                                                       <StackPane.margin>
+                                                                           <Insets bottom="5.0" left="5.0" right="5.0"
+                                                                                   top="5.0"/>
+                                                                       </StackPane.margin>
+                                                                   </ImageView>
+                                                                   <ImageView fitHeight="32.0" fitWidth="32.0"
+                                                                              pickOnBounds="true" preserveRatio="true"
+                                                                              StackPane.alignment="BOTTOM_RIGHT"/>
+                                                               </children>
+                                                            </StackPane>
+                                                            <CheckBox mnemonicParsing="false" StackPane.alignment="TOP_LEFT">
+                                                               <StackPane.margin>
+                                                                  <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+                                                               </StackPane.margin>
+                                                            </CheckBox>
+                                                         </children>
+                                                      </StackPane>
+                                                      <StackPane>
+                                                         <children>
+                                                            <Rectangle arcHeight="5.0" arcWidth="5.0" fill="#ffffff00" height="215.0" stroke="BLACK" strokeType="INSIDE" strokeWidth="0.0" width="215.0">
+                                                               <StackPane.margin>
+                                                                  <Insets />
+                                                               </StackPane.margin>
+                                                            </Rectangle>
+                                                            <StackPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity">
+                                                               <children>
+                                                                  <Pane style="-fx-background-color: white; -fx-border-color: black;" />
+                                                                  <ImageView fitHeight="200.0" fitWidth="200.0" pickOnBounds="true" preserveRatio="true">
+                                                                     <StackPane.margin>
+                                                                        <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+                                                                     </StackPane.margin>
+                                                                  </ImageView>
+                                                               </children>
+                                                            </StackPane>
+                                                         </children>
+                                                      </StackPane>
+                                                   </children>
+                                                </FlowPane>
+                                             </content>
+                                          </TitledPane>
+                                       </children>
+                                    </VBox>
+                                 </content>
+                              </ScrollPane>
+                           </center>
+                           <bottom>
+                              <HBox alignment="TOP_RIGHT" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity" BorderPane.alignment="CENTER">
+                                 <children>
+                                    <Label fx:id="labelThumbnailSize" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity" text="?px" />
+                                    <Slider fx:id="sliderThumbnailSize" majorTickUnit="50.0" max="500.0" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" min="50.0" minHeight="-Infinity" minWidth="-Infinity" minorTickCount="10" prefWidth="257.0" showTickMarks="true" snapToTicks="true" />
+                                 </children>
+                              </HBox>
+                           </bottom>
+                        </BorderPane>
+                     </content>
+                  </Tab>
+                  <Tab fx:id="tabMap" closable="false" disable="true" text="Map">
+                    <content>
+                      <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0" />
+                    </content>
+                  </Tab>
+                  <Tab fx:id="tabFaces" closable="false" disable="true" text="Faces">
+                    <content>
+                      <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0" />
+                    </content>
+                  </Tab>
+                  <Tab fx:id="tabPhoto" closable="false" text="Photo">
+                     <content>
+                        <VBox maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity">
+                           <children>
+                               <StackPane fx:id="stackPanePreview">
+                                   <children>
+                                       <ImageView fx:id="imageView" fitHeight="200.0" fitWidth="200.0"
+                                                  pickOnBounds="true" preserveRatio="true"/>
+                                       <MediaView fx:id="mediaView" fitHeight="200.0" fitWidth="200.0"/>
+                                       <HBox fx:id="hboxPreviewControls" maxHeight="-Infinity"
+                                             maxWidth="1.7976931348623157E308" minHeight="-Infinity"
+                                             style="-fx-background-color: #33333380; -fx-background-radius: 10px; -fx-border-radius: 10px; -fx-border-color: #000000;"
+                                             StackPane.alignment="BOTTOM_CENTER">
+                                           <children>
+                                               <Button fx:id="buttonPreviewPlayPause" maxHeight="1.7976931348623157E308"
+                                                       maxWidth="1.7976931348623157E308" mnemonicParsing="false"
+                                                       onAction="#onPlayPause"
+                                                       style="-fx-background-color: transparent;" text="&gt;"
+                                                       textFill="WHITE"/>
+                                               <VBox HBox.hgrow="SOMETIMES">
+                                                   <children>
+                                                       <Slider fx:id="sliderPreviewPosition"
+                                                               maxHeight="1.7976931348623157E308"
+                                                               maxWidth="1.7976931348623157E308" minHeight="-Infinity"
+                                                               minWidth="-Infinity"/>
+                                                       <HBox maxHeight="1.7976931348623157E308"
+                                                             maxWidth="1.7976931348623157E308">
+                                                           <children>
+                                                               <Label fx:id="labelPreviewStart"
+                                                                      maxHeight="1.7976931348623157E308"
+                                                                      maxWidth="1.7976931348623157E308" text="00:00:00"
+                                                                      textFill="WHITE" HBox.hgrow="SOMETIMES"/>
+                                                               <Label fx:id="labelPreviewCurrent" alignment="CENTER"
+                                                                      maxHeight="1.7976931348623157E308"
+                                                                      maxWidth="1.7976931348623157E308" text="??:??:??"
+                                                                      textFill="WHITE" HBox.hgrow="SOMETIMES"/>
+                                                               <Label fx:id="labelPreviewEnd" alignment="CENTER_RIGHT"
+                                                                      maxHeight="1.7976931348623157E308"
+                                                                      maxWidth="1.7976931348623157E308" text="99:99:99"
+                                                                      textFill="WHITE" HBox.hgrow="SOMETIMES"/>
+                                                           </children>
+                                                       </HBox>
+                                                   </children>
+                                               </VBox>
+                                           </children>
+                                           <padding>
+                                               <Insets bottom="5.0" left="5.0" right="5.0" top="5.0"/>
+                                           </padding>
+                                           <StackPane.margin>
+                                               <Insets bottom="15.0" left="15.0" right="15.0" top="15.0"/>
+                                           </StackPane.margin>
+                                       </HBox>
+                                   </children>
+                              </StackPane>
+                              <TreeTableView fx:id="tableMetadata" prefHeight="200.0" prefWidth="200.0" showRoot="false" VBox.vgrow="ALWAYS">
+                                  <columns>
+                                      <TreeTableColumn fx:id="columnMetadataName" editable="false"
+                                                       maxWidth="1.7976931348623157E308" minWidth="100.0"
+                                                       prefWidth="-1.0" sortable="false" text="Name"/>
+                                      <TreeTableColumn fx:id="columnMetadataTagType" editable="false"
+                                                       maxWidth="1.7976931348623157E308" minWidth="60.0"
+                                                       prefWidth="-1.0" resizable="false" sortable="false" text="#"/>
+                                      <TreeTableColumn fx:id="columnMetadataValue" editable="false"
+                                                       maxWidth="1.7976931348623157E308" minWidth="150.0"
+                                                       prefWidth="-1.0" sortable="false" text="Value"/>
+                                      <TreeTableColumn fx:id="columnMetadataDescription"
+                                                       maxWidth="1.7976931348623157E308" minWidth="200.0"
+                                                       prefWidth="-1.0" text="Description"/>
+                                      <TreeTableColumn fx:id="columnMetadataValueType" maxWidth="1.7976931348623157E308"
+                                                       minWidth="65.0" prefWidth="-1.0" resizable="false" text="Type"/>
+                                  </columns>
+                                  <columnResizePolicy>
+                                      <TreeTableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+                                  </columnResizePolicy>
+                              </TreeTableView>
+                           </children>
+                        </VBox>
+                     </content>
+                  </Tab>
+                   <Tab fx:id="tabNotifications" text="Notifications">
+                       <content>
+                           <AnchorPane maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308"
+                                       minHeight="-Infinity" minWidth="-Infinity">
+                               <children>
+                                   <TreeView fx:id="treeViewNotifications" layoutX="58.0" layoutY="72.0"
+                                             maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308"
+                                             minHeight="-Infinity" minWidth="-Infinity" showRoot="false"
+                                             AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0"
+                                             AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0"/>
+                               </children>
+                           </AnchorPane>
+                       </content>
+                   </Tab>
+               </tabs>
+            </TabPane>
+         </items>
+      </SplitPane>
+   </center>
+   <bottom>
+      <HBox maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity" spacing="5.0" BorderPane.alignment="CENTER">
+         <children>
+            <ProgressBar fx:id="progressbar" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity" prefWidth="200.0" progress="0.0">
+               <HBox.margin>
+                  <Insets left="5.0" right="5.0" />
+               </HBox.margin>
+            </ProgressBar>
+            <Label fx:id="labelStatus" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="-Infinity" minWidth="-Infinity" HBox.hgrow="ALWAYS" />
+         </children>
+      </HBox>
+   </bottom>
+</BorderPane>
