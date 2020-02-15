@@ -189,7 +189,7 @@ repositories {
 }
 
 dependencies {
-    compile fileTree(include: ['*.jar'], dir: 'libs')
+    //compile fileTree(include: ['*.jar'], dir: 'libs')
     compile project(":kotlin-utils")
     compile project(":javafx-utils")
 
