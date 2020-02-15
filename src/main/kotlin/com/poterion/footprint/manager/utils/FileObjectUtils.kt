@@ -3,6 +3,7 @@ package com.poterion.footprint.manager.utils
 import com.poterion.footprint.manager.data.MediaItem
 import com.poterion.footprint.manager.enums.DeviceType
 import com.poterion.footprint.manager.model.FileObject
+import com.poterion.utils.kotlin.uriDecode
 import jcifs.context.SingletonContext
 import jcifs.smb.SmbFile
 import org.slf4j.LoggerFactory
@@ -23,7 +24,8 @@ fun URI.toFileObject(): FileObject? = when (deviceType) {
 		null
 	}
 	DeviceType.SMB -> try {
-		FileObject(SmbFile(toString(), device?.cifsContext ?: SingletonContext.getInstance()))
+		FileObject(SmbFile("${resolve("/")}${path.uriDecode().removePrefix("/")}",
+						   device?.cifsContext ?: SingletonContext.getInstance()))
 	} catch (t: Throwable) {
 		LOGGER.error(t.message, t)
 		null

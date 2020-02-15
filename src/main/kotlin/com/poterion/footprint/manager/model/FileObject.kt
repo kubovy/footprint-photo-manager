@@ -1,10 +1,12 @@
 package com.poterion.footprint.manager.model
 
 import com.poterion.footprint.manager.utils.extension
+import com.poterion.utils.kotlin.uriEncode
 import jcifs.smb.SmbFile
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.net.URI
+import java.net.URL
 import java.nio.file.Files
 import java.nio.file.attribute.BasicFileAttributes
 
@@ -23,7 +25,9 @@ class FileObject {
 		get() = try {
 			when {
 				file != null -> file.absoluteFile.toPath().toUri()
-				smbFile != null -> smbFile.url.toURI()
+				smbFile != null -> smbFile.url
+					.let { url -> URL(url, url.path.split("/").joinToString("/") { it.uriEncode() }) }
+					.toURI()
 				else -> throw NotImplementedError()
 			}
 		} catch (t: Throwable) {

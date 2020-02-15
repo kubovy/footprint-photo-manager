@@ -5,13 +5,12 @@ import com.poterion.footprint.manager.data.MediaItem
 import com.poterion.footprint.manager.enums.DeviceType
 import com.poterion.utils.kotlin.decrypt
 import com.poterion.utils.kotlin.encrypt
+import com.poterion.utils.kotlin.uriDecode
 import jcifs.CIFSContext
 import jcifs.context.SingletonContext
 import jcifs.smb.NtlmPasswordAuthenticator
 import net.samuelcampos.usbdrivedetector.USBDeviceDetectorManager
 import java.net.URI
-import java.net.URLDecoder
-import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
@@ -51,7 +50,7 @@ val Device.usernamePassword: Pair<String, String>?
 	get() = authString
 		?.split(":".toRegex(), 2)
 		?.takeIf { it.size == 2 }
-		?.map { URLDecoder.decode(it, StandardCharsets.UTF_8.name()) }
+		?.map { it.uriDecode() }
 		?.let { (username, password) -> username to password }
 
 private val Device.authenticator: NtlmPasswordAuthenticator?
