@@ -8,7 +8,7 @@ import com.poterion.footprint.manager.utils.Database
 import com.poterion.footprint.manager.utils.Notifications
 import com.poterion.footprint.manager.utils.device
 import com.poterion.footprint.manager.utils.mediaItems
-import java.net.URLDecoder
+import com.poterion.utils.kotlin.uriDecode
 
 /**
  * @author Jan Kubovy [jan@kubovy.eu]
@@ -23,7 +23,7 @@ class DuplicateScanner : Worker<Void?, Pair<Progress, Int>, Int>(null) {
 
 		val cache = mutableMapOf<String, Collection<String>>()
 		val mediaItems = Database.list(Device::class).find { it.isPrimary }?.mediaItems ?: emptyList()
-		update(progress.apply { total.set(mediaItems.size) } to 0)
+		update(progress.setTotal(mediaItems.size) to 0)
 		var count = 0
 		val notifications = mutableListOf<Notification>()
 
@@ -41,19 +41,19 @@ class DuplicateScanner : Worker<Void?, Pair<Progress, Int>, Int>(null) {
 							name = duplicate.uri
 								.removePrefix(duplicate.device?.uri ?: "")
 								.removePrefix("/")
-								.let { URLDecoder.decode(it, "UTF-8") },
+								.uriDecode(),
 							deviceId = duplicate.deviceId,
 							mediaItemId = duplicate.id,
 							context = "${duplicate.hash}|${duplicates.joinToString(",")}"))
 				}
 				count++
 			}
-			update(progress.apply { progress.incrementAndGet() } to count)
+			update(progress.incrementAndGet() to count)
 		}
 
 		Notifications.notifyAll(notifications)
 
-		update(progress.apply { progress.set(total.get()) } to count)
+		update(progress.finish() to count)
 		return count
 	}
 }

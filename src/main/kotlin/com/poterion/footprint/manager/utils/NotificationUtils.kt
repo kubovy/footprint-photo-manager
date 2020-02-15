@@ -6,7 +6,7 @@ import com.poterion.footprint.manager.data.MediaItem
 import com.poterion.footprint.manager.data.MetadataTag
 import com.poterion.footprint.manager.data.Notification
 import com.poterion.footprint.manager.enums.NotificationType
-import java.net.URLDecoder
+import com.poterion.utils.kotlin.uriDecode
 
 /**
  * @author Jan Kubovy [jan@kubovy.eu]
@@ -45,7 +45,7 @@ val Notification.displayName: String
 				mediaItemId
 					?.let { Database.get(MediaItem::class, it) }
 					?.let { it.uri.removePrefix(it.device?.uri ?: "") }
-					?.let { URLDecoder.decode(it, "UTF-8") }
+					?.uriDecode()
 					?.removePrefix("file://")
 					?.let { "file: ${it}" },
 				metadataTagId

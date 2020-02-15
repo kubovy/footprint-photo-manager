@@ -8,13 +8,16 @@ import io.reactivex.subjects.BehaviorSubject
  * @author Jan Kubovy [jan@kubovy.eu]
  */
 object Notifications {
-	private val notifications = mutableListOf<Notification>()
+	private val _notifications = mutableListOf<Notification>()
+
+	val notifications: Collection<Notification>
+		get() = _notifications
 
 	val subject: BehaviorSubject<Collection<Notification>> = BehaviorSubject.create<Collection<Notification>>()
 
 	init {
-		notifications.addAll(Database.list(Notification::class))
-		subject.onNext(notifications)
+		_notifications.addAll(Database.list(Notification::class))
+		subject.onNext(_notifications)
 	}
 
 	fun notify(value: String,
@@ -24,7 +27,6 @@ object Notifications {
 			   mediaItemId: String? = null,
 			   metadataTagId: String? = null,
 			   context: String? = null) {
-
 
 		val notification = Notification(
 				deviceId = deviceId,
@@ -36,38 +38,38 @@ object Notifications {
 				context = context)
 
 		if ((deviceId == null && mediaItemId == null && metadataTagId == null)
-			|| !notifications.contains(notification)
+			|| !_notifications.contains(notification)
 		) {
 			if (type.isPersistent) Database.save(notification)
-			notifications.add(notification)
-			subject.onNext(notifications)
+			_notifications.add(notification)
+			subject.onNext(_notifications)
 		}
 	}
 
 	fun notifyAll(notifications: Collection<Notification>) {
 		val relevant = notifications
 			.filter {
-				(it.deviceId == null && it.mediaItemId == null && it.metadataTagId == null) || !Notifications.notifications.contains(
+				(it.deviceId == null && it.mediaItemId == null && it.metadataTagId == null) || !Notifications._notifications.contains(
 						it)
 			}
 
 		val persistent = relevant.filter { it.type.isPersistent }
 		Database.saveAll(persistent)
 
-		this.notifications.addAll(relevant)
-		subject.onNext(this.notifications)
+		this._notifications.addAll(relevant)
+		subject.onNext(this._notifications)
 	}
 
 	fun dismiss(notification: Notification) {
 		if (notification.type.isPersistent) Database.delete(notification)
-		notifications.remove(notification)
-		subject.onNext(notifications)
+		_notifications.remove(notification)
+		subject.onNext(_notifications)
 	}
 
 	fun dismissAll(notifications: Collection<Notification>) {
 		Database.deleteAll(notifications.filter { it.type.isPersistent })
-		this.notifications.removeAll(notifications)
-		this.notifications.removeAll { notification -> notifications.map { it.id }.contains(notification.id) }
-		subject.onNext(this.notifications)
+		this._notifications.removeAll(notifications)
+		this._notifications.removeAll { notification -> notifications.map { it.id }.contains(notification.id) }
+		subject.onNext(this._notifications)
 	}
 }

@@ -2,8 +2,10 @@ package com.poterion.footprint.manager
 
 import com.poterion.footprint.manager.data.Device
 import com.poterion.footprint.manager.data.Setting
+import com.poterion.footprint.manager.enums.NotificationType
 import com.poterion.footprint.manager.ui.PasswordDialog
 import com.poterion.footprint.manager.utils.Database
+import com.poterion.footprint.manager.utils.Notifications
 import com.poterion.footprint.manager.xuggle.SmbFileProtocolHandlerFactory
 import com.poterion.utils.kotlin.decrypt
 import com.poterion.utils.kotlin.encrypt
@@ -76,13 +78,15 @@ class Main : Application() {
 			}
 		}
 
+		val oldNotifications = Notifications.notifications.filter { it.type == NotificationType.DUPLICATE }
+		Notifications.dismissAll(oldNotifications)
+
 		val width = Database.list(Setting::class).find { it.name == Setting.WINDOW_WIDTH }
 			?: Setting(name = Setting.WINDOW_WIDTH, value = "${1600.0}")
 		val height = Database.list(Setting::class).find { it.name == Setting.WINDOW_HEIGHT }
 			?: Setting(name = Setting.WINDOW_HEIGHT, value = "${1200.0}")
 		val maximized = Database.list(Setting::class).find { it.name == Setting.WINDOW_MAXIMIZED }
 			?: Setting(name = Setting.WINDOW_MAXIMIZED, value = "${false}")
-
 
 		val root = ManagerController.get(primaryStage)
 		primaryStage.title = APP_TITLE
@@ -100,5 +104,4 @@ class Main : Application() {
 			exitProcess(0)
 		}
 	}
-
 }

@@ -6,7 +6,7 @@ package com.poterion.footprint.manager.enums
 enum class NotificationType(val isPersistent: Boolean) {
 	MISSING_IN_PRIMARY(true),
 	MISSING_LOCATION(true),
-	DUPLICATE(true),
+	DUPLICATE(false),
 	INVALID_DATE(true),
 	PROCESSING_PROBLEM(true),
 	SCAN_PROBLEM(false),
