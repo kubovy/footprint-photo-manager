@@ -12,8 +12,29 @@ import com.poterion.footprint.manager.enums.PhotoFormat
 import com.poterion.footprint.manager.enums.VideoFormat
 import com.poterion.footprint.manager.model.FileObject
 import com.poterion.footprint.manager.model.Progress
-import com.poterion.footprint.manager.utils.*
-import com.poterion.utils.kotlin.*
+import com.poterion.footprint.manager.utils.Database
+import com.poterion.footprint.manager.utils.Notifications
+import com.poterion.footprint.manager.utils.THUMBNAIL_BBOX
+import com.poterion.footprint.manager.utils.deleteCachedFile
+import com.poterion.footprint.manager.utils.detectMetadataTag
+import com.poterion.footprint.manager.utils.device
+import com.poterion.footprint.manager.utils.deviceType
+import com.poterion.footprint.manager.utils.getCachedImage
+import com.poterion.footprint.manager.utils.getTagValueType
+import com.poterion.footprint.manager.utils.inputStream
+import com.poterion.footprint.manager.utils.isRelevant
+import com.poterion.footprint.manager.utils.mediaItems
+import com.poterion.footprint.manager.utils.metadata
+import com.poterion.footprint.manager.utils.toFileObject
+import com.poterion.footprint.manager.utils.toMediaItemOrNull
+import com.poterion.footprint.manager.utils.toUriOrNull
+import com.poterion.utils.kotlin.calculateHash
+import com.poterion.utils.kotlin.measureTime
+import com.poterion.utils.kotlin.parallelStreamIntermediate
+import com.poterion.utils.kotlin.parallelStreamMap
+import com.poterion.utils.kotlin.toKI
+import com.poterion.utils.kotlin.unGzipTarTo
+import com.poterion.utils.kotlin.uriEncode
 import jcifs.smb.SmbAuthException
 import jcifs.smb.SmbFile
 import org.slf4j.LoggerFactory
@@ -77,9 +98,10 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 				else -> throw NotImplementedError()
 			}.sortedWith(compareBy({ it.parent }, { it.name }))
 			LOGGER.info("Found ${found.size} files in ${this}")
-			progress.total.set(found.size)
 
 			device?.scanContext().use {
+				progress.setTotal(found.size)
+
 				val all = found.chunked(CHUNK_SIZE)
 					.parallelStreamMap(TRANSFORMING_PARALLELISM) { files ->
 						files
@@ -91,12 +113,13 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 									?.also { Database.saveAll(it) }
 							}
 							.map { (item, _) -> item }
-							.also { update(progress.apply { progress.addAndGet(CHUNK_SIZE) } to it) }
+							.also { update(progress.addAndGet(CHUNK_SIZE) to it) }
 					}
 					.flatten()
 
 				update(Progress.INDETERMINATE to null)
-				progress.progress.set(0)
+				cleanOrphans(all)
+				progress.set(0)
 
 				val scanned = all.filter { !it.isUnscanned }
 				val unscanned = all.filter { it.isUnscanned }
@@ -105,7 +128,7 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 					.chunked(CHUNK_SIZE)
 					.parallelStreamIntermediate(PROCESSING_PARALLELISM) { mediaItems ->
 						for (mediaItem in mediaItems) {
-							update(progress.apply { progress.getAndIncrement() } to mediaItem)
+							update(progress.getAndIncrement() to mediaItem)
 							mediaItem.useSambaCacheThumbnail()
 							mediaItem.process(force)
 						}
@@ -115,13 +138,13 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 					.chunked(CHUNK_SIZE)
 					.parallelStreamIntermediate { mediaItems ->
 						for (mediaItem in mediaItems) {
-							update(progress.apply { progress.getAndIncrement() } to mediaItem)
+							update(progress.getAndIncrement() to mediaItem)
+							mediaItem.useSambaCacheThumbnail()
 							mediaItem.process(force)
 						}
 					}
 
-				all.also { cleanOrphans(it) }
-					.also { update(progress.apply { progress.set(total.get()) } to null) }
+				update(progress.finish() to null)
 			}
 		} else {
 			update(Progress.NOTHING_TODO to null)
@@ -134,9 +157,13 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 
 		init {
 			if (type == DeviceType.SMB) {
+				update(progress.setIndeterminate() to "Downloading samba file cache ...")
 				buildSambaFileCache()
-				closeables.add(downloadSambaCache("metadata"))
-				closeables.add(downloadSambaCache("thumbnails"))
+				update(progress.setIndeterminate() to "Extracting ...")
+				listOf("metadata", "thumbnails")
+					.parallelStreamMap(2) { downloadSambaCache(it) }
+					.also { closeables.addAll(it) }
+				update(progress.finish() to "Extraction finished")
 			}
 		}
 
@@ -144,9 +171,8 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 	}
 
 	private fun Device.buildSambaFileCache() = takeIf { type == DeviceType.SMB }
-		?.toUriOrNull()
-		?.resolve(".footprint/list")
 		?.toFileObject()
+		?.resolve(".footprint/list")
 		?.smbFile
 		?.takeIf { it.exists() }
 		?.inputStream
@@ -158,7 +184,8 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 			while (scanner.hasNext()) {
 				val line = scanner.next().split("|")
 				if (line.size >= 5) {
-					val uri = device?.toUriOrNull()?.resolve(line.first())?.toString()
+					val file = line.first().split("/").joinToString("/") { it.uriEncode() }
+					val uri = device?.toUriOrNull()?.resolve(file)?.toString()
 					if (uri != null) smbFileList[uri] = line
 				}
 			}
@@ -182,16 +209,53 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 				?.toFileObject()
 				?.smbFile
 				?.takeIf { it.exists() }
-				?.let { smbFile -> smbCachePath?.let { smbFile to it } }
-				?.let { (smbFile, cachePath) ->
+//				?.let { smbFile -> smbCachePath?.let { smbFile to it } }
+//				?.let { (smbFile, cachePath) ->
+//					try {
+//						smbFile to cachePath.resolve("${type}.tag.gz")
+//					} catch (t: Throwable) {
+//						LOGGER.error(t.message, t)
+//						null
+//					}
+//				}
+//				?.also { (smbFile, _) -> update(progress.setTotal(smbFile.length()) to "Downloading ${type} from server...") }
+//				?.let { (smbFile, cacheFile) -> smbFile to cacheFile.toFile() }
+//				?.also { (smbFile, cacheFile) ->
+//					var i = 0
+//					smbFile.inputStream.copy(cacheFile.outputStream()) { size ->
+//						if ((i++) % 100 == 0) {
+//							update(progress.set(size) to "${size.toKI()} ${type} downloaded from server ...")
+//						}
+//					}
+//				}
+//				?.let { (_, cacheFile) -> cacheFile }
+				?.let { cacheFile -> smbCachePath?.let { cacheFile to it } }
+				?.let { (cacheFile, cachePath) ->
 					try {
-						smbFile to cachePath.resolve(type)
+						cacheFile to cachePath.resolve(type)
 					} catch (t: Throwable) {
 						LOGGER.error(t.message, t)
 						null
 					}
 				}
-				?.let { (smbFile, cacheFile) -> smbFile.inputStream.use { it.unGzipTarTo(cacheFile) } }
+				//?.let { (cacheFile, cacheFolder) -> cacheFile to cacheFolder.toFile() }
+				//?.let { (cacheFile, cacheFolder) -> cacheFile to cacheFolder.toPath() }
+				//?.also { (_, _) -> update(progress.setIndeterminate() to "Extracting ${type} ...") }
+				?.takeIf { (_, cacheFolder) -> !cacheFolder.toFile().exists() }
+				?.also { (cacheFile, cacheFolder) ->
+					cacheFile.inputStream.use {
+						var i = 0
+						var totalSize: Long = 0
+						it.unGzipTarTo(cacheFolder) { size ->
+							totalSize += size
+							if ((i++) % 1000 == 0) {
+								update(progress.setIndeterminate() to "Extracting ${type}: ${totalSize.toKI()} ...")
+							}
+						}
+					}
+				}
+			//?.also { (cacheFile) -> cacheFile.delete() }
+			//?.also { update(progress.finish() to "Extracting of ${type} finished") }
 		}
 
 		private fun clear() = try {
@@ -206,70 +270,71 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 		}
 
 		override fun close() {
-			clear()
+			// TODO clear()
 		}
 	}
 
-	private fun MediaItem.findSambaCacheFile(type: String, extension: String): File? =
-		takeIf { deviceType == DeviceType.SMB }
-			?.toUriOrNull()
-			?.let { device?.toUriOrNull()?.relativize(it) }
-			?.path
-			?.let { device?.smbCachePath?.resolve(type)?.resolve(it) }
-			?.let { it.parent.resolve("${it.fileNameWithoutExtension()}.${extension}") }
-			?.toFile()
+	private fun MediaItem.findSambaCacheFile(type: String, suffix: String? = null): File? =
+			takeIf { deviceType == DeviceType.SMB }
+				?.toUriOrNull()
+				?.let { device?.toUriOrNull()?.relativize(it) }
+				?.path
+				?.let { device?.smbCachePath?.resolve(type)?.resolve(it) }
+				?.let { it.parent.resolve("${it.fileName}${suffix ?: ""}") }
+				?.toFile()
 
-	private fun MediaItem.findSambaCacheMetadata(): List<MetadataTag> = findSambaCacheFile("metadata", "txt")
+	private fun MediaItem.findSambaCacheMetadata(): List<MetadataTag> = findSambaCacheFile("metadata", ".txt")
 		?.inputStream()
 		?.use { inputStream ->
 			val scanner = Scanner(inputStream)
 			scanner.useDelimiter("\n")
-			val results = mutableListOf<MatchResult?>()
+			val metadataTags = mutableListOf<MetadataTag>()
 			while (scanner.hasNext()) {
-				results.add("\\[([\\w:]+)]\\s*(\\d+|-)\\s*(\\w+)\\s*:\\s(.*)".toRegex().matchEntire(scanner.next()))
+				val line = scanner.next()
+				val metadataTag = "([\\w:]+)\\t(\\d+|-)\\t([^\\t]+)\\t(.*)"
+					.toRegex()
+					.matchEntire(line)
+					?.groupValues
+					?.detectMetadataTag()
+				if (metadataTag != null) metadataTags.add(metadataTag)
 			}
-			results
-		}
-		?.filterNotNull()
-		?.map { it.groupValues }
-		?.map {
-			MetadataTag(
-					mediaItemId = id,
-					directory = it.getOrNull(1) ?: "",
-					tagType = it.getOrNull(2)?.toIntOrNull() ?: 0,
-					name = it.getOrNull(3) ?: "",
-					description = it.getOrNull(4))
+			metadataTags
 		}
 		?: emptyList()
 
 	private fun MediaItem.useSambaCacheThumbnail() = getCachedImage(width = THUMBNAIL_BBOX)
-		.takeIf { !it.exists() || it.length() == 0L }
-		?.let { cacheFile -> findSambaCacheFile("thumbnails", "jpg")?.let { it to cacheFile } }
-		?.also { (smbFile, cacheFile) -> smbFile.renameTo(cacheFile) }
-
-	private fun URI.cleanOrphans(found: List<MediaItem>) =
-		mediaItems // Orphans
-			.filter { mediaItem -> found.none { it.id == mediaItem.id } }
-			.map { it.apply { deletedAt = Instant.now() } }
-			.also { orphans ->
-				LOGGER.info("Cleaning ${orphans.size} orphans")
-				if (orphans.any { it.device?.isPrimary == true }) orphans
-					.map { it.apply { deletedAt = Instant.now() } }
-					.also { Database.saveAll(it) }
-				else Database.deleteAll(orphans)
+		.takeIf {
+			!it.exists() || it.length() == 0L
+		}
+		?.let { cacheFile ->
+			findSambaCacheFile("thumbnails")?.let {
+				it to cacheFile
 			}
+		}
+		?.also { (smbFile, cacheFile) ->
+			smbFile.renameTo(cacheFile)
+		}
+
+	private fun URI.cleanOrphans(found: List<MediaItem>) = mediaItems // Orphans
+		.filter { mediaItem -> found.none { it.id == mediaItem.id } }
+		.also { LOGGER.info("Cleaning ${it.size} orphans") }
+		.also { orphans -> Database.deleteAll(orphans) }
 
 	private val FileObject.isRelevant: Boolean
-		get() = !name.startsWith(".") && (isDirectory == true || mediaExtensions.any { name.endsWith(".${it}", true) })
+		get() = !listOf(".", "@").contains(name.substring(0, 1))
+				&& (isDirectory == true || mediaExtensions.any { name.endsWith(".${it}", true) })
 
 	private fun File.listFileObjects(): List<FileObject> = try {
-		update(Progress.INDETERMINATE to absolutePath)
+		update(Progress.INDETERMINATE to this)
 		listFiles { file -> FileObject(file).isRelevant }
 			.also { if (it == null) LOGGER.error("NULL files in ${parent}") }
 			?.toList()
 			?.parallelStreamMap(LISTING_PARALLELISM) { file ->
-				if (file.isDirectory) file.listFileObjects()
-				else listOf(FileObject(file))
+				if (file.isDirectory && !file.isHidden && !listOf(".", "@").contains(file.name.substring(0, 1))) {
+					file.listFileObjects()
+				} else if (file.isFile && !file.isHidden && !listOf(".", "@").contains(file.name.substring(0, 1))) {
+					listOf(FileObject(file))
+				} else listOf()
 			}
 			?.flatten()
 			?: emptyList()
@@ -285,7 +350,7 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 	}
 
 	private fun SmbFile.listFileObjects(): List<FileObject> {
-		update(Progress.INDETERMINATE to path)
+		update(Progress.INDETERMINATE to this)
 		var retries = 0
 		var result: List<FileObject>? = null
 		var lastError: Throwable? = null
@@ -296,8 +361,11 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 				.also { if (it == null) LOGGER.error("NULL files in ${parent}") }
 				?.toList()
 				?.parallelStreamMap(LISTING_PARALLELISM) { file ->
-					if (file.isDirectory) file.listFileObjects() // FIXME
-					else listOf(FileObject(file))
+					if (file.isDirectory && !file.isHidden && !listOf(".", "@").contains(file.name.substring(0, 1))) {
+						file.listFileObjects() // FIXME
+					} else if (file.isFile && !file.isHidden && !listOf(".", "@").contains(file.name.substring(0, 1))) {
+						listOf(FileObject(file))
+					} else listOf()
 				}
 				?.flatten()
 				?: emptyList()
@@ -341,9 +409,7 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 
 		val hash = takeUnless { isDirty || hash == null }?.hash
 			?: smbFileList[uri]?.get(4)?.toUpperCase()
-			?: measureTime("Generated hash %s ?= ${smbFileList[uri]?.get(4)} for ${this.uri}") {
-				inputStream()?.calculateHash("SHA-256")
-			}
+			?: measureTime("Generated hash %s for ${this.uri}") { inputStream()?.calculateHash("SHA-256") }
 			?: ""
 
 //		if (update || contentHash == null) inputStream()?.use { inputStream ->
@@ -368,60 +434,58 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 			it.length = smbFileList[uri]?.get(1)?.toLongOrNull() ?: toFileObject()?.length ?: 0
 			it.hash = hash
 			//it.contentHash = contentHash
-			it.createdAt =
-				Instant.ofEpochMilli(smbFileList[uri]?.get(2)?.toLongOrNull() ?: toFileObject()?.createdAt ?: 0)
-			it.updatedAt =
-				Instant.ofEpochMilli(smbFileList[uri]?.get(3)?.toLongOrNull() ?: toFileObject()?.updatedAt ?: 0)
+			it.createdAt = Instant
+				.ofEpochMilli(smbFileList[uri]?.get(2)?.toLongOrNull() ?: toFileObject()?.createdAt ?: 0)
+			it.updatedAt = Instant
+				.ofEpochMilli(smbFileList[uri]?.get(3)?.toLongOrNull() ?: toFileObject()?.updatedAt ?: 0)
+			Database.deleteAll(metadata)
 		}
 
-		Database.deleteAll(this.metadata)
 		val entities = mutableListOf<BaseItem>(this)
-		inputStream()
+
+		val mediaItemMetadata = metadata
+		val cachedMetadata: List<MetadataTag> = when (deviceType) {
+			DeviceType.SMB -> findSambaCacheMetadata()
+			else -> emptyList()
+		}.map { m -> m to mediaItemMetadata.find { it.directory == m.directory && it.tagType == m.tagType } }
+			.map { (m, i) -> if (isDirty) m else (i ?: m) }
+		LOGGER.info("Found ${cachedMetadata.size} cached metadata tags")
+
+		entities.addAll(cachedMetadata)
+
+		if (cachedMetadata.isEmpty()) inputStream()
 			?.let { BufferedInputStream(it) }
 			?.use { inputStream ->
-				val cachedMetadata: List<MetadataTag> = when (deviceType) {
-					DeviceType.SMB -> findSambaCacheMetadata()
-					else -> emptyList()
-				}
-				LOGGER.info("Found ${cachedMetadata.size} cached metadata tags")
-
 				try {
 					val fileMetadata = ImageMetadataReader.readMetadata(inputStream)
 					for (directory in fileMetadata.directories) {
-						for (tag in directory.tags) {
-							if (directory.isRelevant(tag.tagType)) {
-								var metadataTag: MetadataTag? = null
-								try {
-									metadataTag = this.metadata
-										.find {
-											it.directory == directory.name
-													&& it.name == tag.tagName
-													&& it.tagType == tag.tagType
-													&& it.valueType == directory.getTagValueType(tag.tagType)
-										}
-										?: MetadataTag(
-												mediaItemId = id,
-												directory = directory.name,
-												name = tag.tagName,
-												tagType = tag.tagType,
-												valueType = directory.getTagValueType(tag.tagType))
+						for (tag in directory.tags) if (directory.isRelevant(tag.tagType)) {
+							var metadataTag: MetadataTag? = null
+							try {
+								metadataTag = mediaItemMetadata
+									.find { it.directory == directory.name && it.tagType == tag.tagType }
+									?: MetadataTag(
+											mediaItemId = id,
+											directory = directory.name,
+											name = tag.tagName,
+											tagType = tag.tagType,
+											valueType = directory.getTagValueType(tag.tagType))
 
-									metadataTag.apply {
-										raw = directory.getString(tag.tagType)
-										description = tag.description
-									}
-
-									entities.add(metadataTag)
-								} catch (t: Throwable) {
-									LOGGER.error("Error while processing metadata of ${this.uri}: ${t.message}", t)
-									Notifications.notify(value = t.message
-										?: "${t.javaClass.simpleName} occurred while processing metadata.",
-														 type = NotificationType.METADATA_ERROR,
-														 name = directory.name,
-														 deviceId = deviceId,
-														 mediaItemId = id,
-														 metadataTagId = metadataTag?.id)
+								metadataTag.apply {
+									raw = directory.getString(tag.tagType)
+									description = tag.description
 								}
+
+								entities.add(metadataTag)
+							} catch (t: Throwable) {
+								LOGGER.error("Error while processing metadata of ${this.uri}: ${t.message}", t)
+								Notifications.notify(value = t.message
+									?: "${t.javaClass.simpleName} occurred while processing metadata.",
+													 type = NotificationType.METADATA_ERROR,
+													 name = directory.name,
+													 deviceId = deviceId,
+													 mediaItemId = id,
+													 metadataTagId = metadataTag?.id)
 							}
 						}
 						if (directory.hasErrors()) {
@@ -435,9 +499,6 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 							}
 						}
 					}
-
-					Database.saveAll(entities)
-					LOGGER.info("Processed ${this.uri} with ${entities.size - 1} tags in ${System.currentTimeMillis() - start}ms")
 				} catch (t: Throwable) {
 					LOGGER.error("Error while processing ${this.uri}: ${t.message}", t)
 					Notifications.notify(
@@ -447,6 +508,9 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 							mediaItemId = id)
 				}
 			}
+
+		Database.saveAll(entities)
+		LOGGER.info("Processed ${this.uri} with ${entities.size - 1} tags in ${System.currentTimeMillis() - start}ms")
 
 //		if (deviceType.remote) {
 //			if (imageFormat != null) getImageThumbnail(width = CACHE_BBOX)
