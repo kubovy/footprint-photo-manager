@@ -1,7 +1,14 @@
 package com.poterion.footprint.manager.utils
 
 import com.poterion.footprint.manager.Main
-import com.poterion.footprint.manager.data.*
+import com.poterion.footprint.manager.data.BaseItem
+import com.poterion.footprint.manager.data.CacheableItem
+import com.poterion.footprint.manager.data.Device
+import com.poterion.footprint.manager.data.MediaItem
+import com.poterion.footprint.manager.data.MetadataTag
+import com.poterion.footprint.manager.data.Notification
+import com.poterion.footprint.manager.data.Setting
+import com.poterion.footprint.manager.data.UriItem
 import org.flywaydb.core.Flyway
 import org.hibernate.Session
 import org.hibernate.SessionFactory
@@ -66,12 +73,12 @@ object Database {
 					cache[type] = listFromDB(type).map { it.id!! to it }.toMap().toMutableMap()
 				}
 			}
-//			lock.write {
-//				for (mediaItem in list(MediaItem::class)) {
-//					val irrelevant = mediaItem.metadata.filterNot { it.isRelevant() }
-//					deleteAll(irrelevant)
-//				}
-//			}
+			lock.write {
+				for (mediaItem in list(MediaItem::class)) {
+					val irrelevant = mediaItem.metadata.filterNot { it.isRelevant() }
+					deleteAll(irrelevant)
+				}
+			}
 		} catch (t: Throwable) {
 			LOGGER.error("Initial SessionFactory creation failed: ${t}", t)
 			throw ExceptionInInitializerError(t)
