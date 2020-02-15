@@ -17,17 +17,14 @@ class GenerateTreeWorker(arg: Collection<Device>?) :
 	override fun doWork(arg: Collection<Device>?): List<TreeItem<UriItem>>? {
 		val devices = arg?.takeIf { it.isNotEmpty() } ?: Database.list(Device::class)
 		val rootItems = mutableListOf<TreeItem<UriItem>>()
-		val rootTreeItems = mutableMapOf<String, TreeItem<UriItem>>()
-		for (device in devices) {
-			val rootItem = TreeItem(device as UriItem)
-			val deviceId = device.id
-			if (deviceId != null) rootTreeItems[deviceId] = rootItem
-			update(rootItem)
-		}
+		//for (device in devices) {
+		//	val rootItem = TreeItem(device as UriItem)
+		//	update(rootItem)
+		//}
 		for (device in devices) {
 			if (rootItems.none { it.value.id == device.id }) {
-				val rootItem = rootTreeItems[device.id] ?: TreeItem(device as UriItem)
-				update(rootItem)
+				val rootItem = TreeItem(device as UriItem)
+				//val rootItem = rootTreeItems[device.id] ?: TreeItem(device as UriItem).also { update(it) }
 
 				if (device.type != DeviceType.REMOVABLE || device.isAvailable) for (mediaItem in device.mediaItems) {
 					rootItem.add(mediaItem)
@@ -36,6 +33,6 @@ class GenerateTreeWorker(arg: Collection<Device>?) :
 				rootItems.add(rootItem)
 			}
 		}
-		return rootItems.sortedBy { it.value?.name }
+		return rootItems
 	}
 }

@@ -1,6 +1,11 @@
 package com.poterion.footprint.manager
 
-import com.poterion.footprint.manager.data.*
+import com.poterion.footprint.manager.data.Device
+import com.poterion.footprint.manager.data.MediaItem
+import com.poterion.footprint.manager.data.MetadataTag
+import com.poterion.footprint.manager.data.Notification
+import com.poterion.footprint.manager.data.Setting
+import com.poterion.footprint.manager.data.UriItem
 import com.poterion.footprint.manager.enums.DeviceType
 import com.poterion.footprint.manager.model.MultiProgress
 import com.poterion.footprint.manager.model.Progress
@@ -9,11 +14,32 @@ import com.poterion.footprint.manager.model.VirtualItem
 import com.poterion.footprint.manager.ui.AddSambaShareDialog
 import com.poterion.footprint.manager.ui.ProgressDialog
 import com.poterion.footprint.manager.ui.SettingsController
-import com.poterion.footprint.manager.utils.*
-import com.poterion.footprint.manager.workers.*
-import com.poterion.utils.javafx.*
+import com.poterion.footprint.manager.utils.Database
+import com.poterion.footprint.manager.utils.Notifications
+import com.poterion.footprint.manager.utils.addAll
+import com.poterion.footprint.manager.utils.dataTreeComparator
+import com.poterion.footprint.manager.utils.device
+import com.poterion.footprint.manager.utils.displayName
+import com.poterion.footprint.manager.utils.formattedLocation
+import com.poterion.footprint.manager.utils.formattedResolution
+import com.poterion.footprint.manager.utils.icon
+import com.poterion.footprint.manager.utils.metadata
+import com.poterion.footprint.manager.utils.toIcon
+import com.poterion.footprint.manager.utils.toUriOrNull
+import com.poterion.footprint.manager.workers.DuplicateScanner
+import com.poterion.footprint.manager.workers.GenerateTreeWorker
+import com.poterion.footprint.manager.workers.ImageLoader
+import com.poterion.footprint.manager.workers.ScanWorker
+import com.poterion.footprint.manager.workers.VideoLoader
+import com.poterion.utils.javafx.cell
+import com.poterion.utils.javafx.expandTree
+import com.poterion.utils.javafx.find
+import com.poterion.utils.javafx.findAll
+import com.poterion.utils.javafx.toImage
+import com.poterion.utils.javafx.toImageView
 import com.poterion.utils.kotlin.intermediate
 import com.poterion.utils.kotlin.toFormattedDuration
+import com.poterion.utils.kotlin.uriDecode
 import javafx.application.Platform
 import javafx.beans.property.SimpleObjectProperty
 import javafx.collections.FXCollections
@@ -23,11 +49,33 @@ import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.Parent
-import javafx.scene.control.*
+import javafx.scene.control.Alert
+import javafx.scene.control.Button
+import javafx.scene.control.ButtonType
+import javafx.scene.control.CheckBox
+import javafx.scene.control.ContextMenu
+import javafx.scene.control.Label
+import javafx.scene.control.MenuItem
+import javafx.scene.control.ProgressBar
+import javafx.scene.control.ScrollPane
+import javafx.scene.control.SelectionMode
+import javafx.scene.control.Slider
+import javafx.scene.control.Tab
+import javafx.scene.control.TabPane
+import javafx.scene.control.Tooltip
+import javafx.scene.control.TreeItem
+import javafx.scene.control.TreeTableColumn
+import javafx.scene.control.TreeTableView
+import javafx.scene.control.TreeView
 import javafx.scene.image.Image
 import javafx.scene.image.ImageView
 import javafx.scene.input.MouseButton
-import javafx.scene.layout.*
+import javafx.scene.layout.FlowPane
+import javafx.scene.layout.HBox
+import javafx.scene.layout.Pane
+import javafx.scene.layout.Region
+import javafx.scene.layout.StackPane
+import javafx.scene.layout.VBox
 import javafx.scene.media.MediaPlayer
 import javafx.scene.media.MediaView
 import javafx.scene.paint.Color
@@ -35,11 +83,12 @@ import javafx.scene.shape.Rectangle
 import javafx.stage.DirectoryChooser
 import javafx.stage.Stage
 import javafx.util.Duration
+import jcifs.smb.SmbFile
 import net.samuelcampos.usbdrivedetector.USBDeviceDetectorManager
 import net.samuelcampos.usbdrivedetector.USBStorageDevice
 import net.samuelcampos.usbdrivedetector.events.DeviceEventType
+import java.io.File
 import java.net.URI
-import java.net.URLDecoder
 import java.time.Instant
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -151,7 +200,7 @@ class ManagerController {
 				.isEmpty()
 
 
-			when (selected.value) {
+			when (selected?.value) {
 				is Device -> {
 					//selectedMediaProperty.set(null)
 					showThumbnails(selected)
@@ -176,28 +225,33 @@ class ManagerController {
 //		columnDataName.prefWidth = columnDataNameWidth.value?.toDoubleOrNull() ?: 100.0
 //		columnDataName.widthProperty().addListener { _, _, v -> Database.save(columnDataNameWidth.apply { value = "${v}" }) }
 		columnDataName.cell("name") { item, value, empty ->
-			text = value?.takeUnless { empty }?.removeSuffix("/")?.let { URLDecoder.decode(it, "UTF-8") }
-			graphic = StackPane().takeUnless { empty }?.apply {
-				prefWidth = 16.0
-				prefHeight = 16.0
-				item?.takeUnless { empty }?.icon()?.toImageView()?.also { children.add(it) }
-				if (item is Device && item.isPrimary) Icons.STAR
-					?.takeUnless { empty }
-					?.toImageView(8, 8)
-					?.also { StackPane.setAlignment(it, Pos.TOP_LEFT) }
-					?.also { children.add(it) }
-
-				when {
-					item is Device && !item.isAvailable -> Icons.UNAVAILABLE
-//					item is Device -> item.mediaItems.flatMap { it.problems }.toSet().minBy { it.ordinal }?.icon
-//					item is VirtualItem -> item.mediaItems.flatMap { it.problems }.toSet().minBy { it.ordinal }?.icon
-//					item is MediaItem -> item.problems.minBy { it.ordinal }?.icon
-					else -> null
-				}?.takeUnless { empty }
-					?.toImageView(8, 8)
-					?.also { StackPane.setAlignment(it, Pos.BOTTOM_RIGHT) }
-					?.also { children.add(it) }
-			}
+			text = value?.takeUnless { empty }?.removeSuffix("/")?.uriDecode()
+			graphic = item?.takeUnless { empty }?.icon()?.toImageView()
+//			graphic = StackPane().takeUnless { empty }?.also { stackPane ->
+//				minWidth = 16.0
+//				minHeight = 16.0
+//				prefWidth = 16.0
+//				prefHeight = 16.0
+//				maxWidth = 16.0
+//				maxHeight = 16.0
+//				item?.takeUnless { empty }?.icon()?.toImageView()?.also { stackPane.children.add(it) }
+//				if (item is Device && item.isPrimary) Icons.STAR
+//					?.takeUnless { empty }
+//					?.toImageView(8, 8)
+//					?.also { StackPane.setAlignment(it, Pos.TOP_LEFT) }
+//					?.also { stackPane.children.add(it) }
+//
+//				when {
+//					item is Device && !item.isAvailable -> Icons.UNAVAILABLE
+////					item is Device -> item.mediaItems.flatMap { it.problems }.toSet().minBy { it.ordinal }?.icon
+////					item is VirtualItem -> item.mediaItems.flatMap { it.problems }.toSet().minBy { it.ordinal }?.icon
+////					item is MediaItem -> item.problems.minBy { it.ordinal }?.icon
+//					else -> null
+//				}?.takeUnless { empty }
+//					?.toImageView(8, 8)
+//					?.also { StackPane.setAlignment(it, Pos.BOTTOM_RIGHT) }
+//					?.also { stackPane.children.add(it) }
+//			}
 
 //			tooltip = item.takeUnless { empty }?.getFormattedProblemMessage()?.let { Tooltip(it) }
 
@@ -250,21 +304,23 @@ class ManagerController {
 	}
 
 	private fun start() {
-		Notifications.subject.sample(2, TimeUnit.SECONDS).subscribe { notifications ->
-			Platform.runLater {
-				treeViewNotifications.root.children.clear()
-				treeViewNotifications.addAll(notifications)
-			}
-		}
-
-		updateDataTree()
-
-		Database.list(Device::class)
-			.filter { it.type == DeviceType.LOCAL }
-			.mapNotNull { it.toUriOrNull() }
-			.forEach { it.scan() }
-
 		stage.setOnShown {
+			Notifications.subject.sample(2, TimeUnit.SECONDS).subscribe { notifications ->
+				Platform.runLater {
+					treeViewNotifications.root.children.clear()
+					treeViewNotifications.addAll(notifications)
+				}
+			}
+
+			progressDialog = ProgressDialog("Refreshing media collection")
+			progressDialog?.setOnShown { updateDataTree() }
+			progressDialog?.show()
+
+			Database.list(Device::class)
+				.filter { it.type == DeviceType.LOCAL }
+				.mapNotNull { it.toUriOrNull() }
+				.forEach { it.scan() }
+
 			//driveDetector.removableDevices.forEach(::mount)
 			driveDetector.addDriveListener { event ->
 				Platform.runLater {
@@ -574,43 +630,49 @@ class ManagerController {
 			?.also { it.children.clear() }
 	}
 
+	private var updatingWholeTreeInProgress = false
+
 	private fun updateDataTree(vararg devices: Device?) {
-		GenerateTreeWorker(devices.filterNotNull())
-			.onStart {
-				if (progressDialog == null && devices.filterNotNull().isEmpty()) {
-					progressDialog = ProgressDialog("Refreshing media collection")
-					progressDialog?.show()
+		if (!updatingWholeTreeInProgress) {
+			updatingWholeTreeInProgress = devices.filterNotNull().isEmpty()
+			GenerateTreeWorker(devices.filterNotNull())
+				.onStart {
+					if (progressDialog == null && devices.filterNotNull().isEmpty()) {
+						progressDialog = ProgressDialog("Refreshing media collection")
+						progressDialog?.show()
+					}
 				}
-			}
-			.onUpdate { rootItem ->
-				if (tableData.root.children.none { it.value.id == rootItem.value.id }) {
-					tableData.root.children.add(rootItem)
-					tableData.root.children.sortWith(dataTreeComparator)
-				}
-			}
-			.onSuccess { firstLevelItems ->
-				if (devices.filterNotNull().isEmpty() && firstLevelItems != null) {
-					tableData.root.children.setAll(firstLevelItems)
-				} else if (firstLevelItems != null) {
-					tableData.root.children.removeIf { root -> firstLevelItems.any { it.value.id == root.value.id } }
-					for (firstLevelItem in firstLevelItems) {
-						tableData.root.children.add(firstLevelItem)
+				.onUpdate { rootItem ->
+					if (tableData.root.children.none { it.value.id == rootItem.value.id }) {
+						tableData.root.children.add(rootItem)
 						tableData.root.children.sortWith(dataTreeComparator)
 					}
 				}
-			}
-			.onFinished {
-				if (devices.filterNotNull().isEmpty()) {
-					progressDialog?.dismiss()
-					progressDialog = null
+				.onSuccess { firstLevelItems ->
+					if (devices.filterNotNull().isEmpty() && firstLevelItems != null) {
+						tableData.root.children.setAll(firstLevelItems)
+					} else if (firstLevelItems != null) {
+						tableData.root.children.removeIf { root -> firstLevelItems.any { it.value.id == root.value.id } }
+						for (firstLevelItem in firstLevelItems) {
+							tableData.root.children.add(firstLevelItem)
+							tableData.root.children.sortWith(dataTreeComparator)
+						}
+					}
 				}
-			}
-			.also {
-				treeUpdateExecutor.shutdownNow()
-				treeUpdateExecutor.awaitTermination(100, TimeUnit.MILLISECONDS)
-				treeUpdateExecutor = Executors.newSingleThreadExecutor()
-				treeUpdateExecutor.submit(it)
-			}
+				.onFinished {
+					if (devices.filterNotNull().isEmpty()) {
+						updatingWholeTreeInProgress = false
+						progressDialog?.dismiss()
+						progressDialog = null
+					}
+				}
+				.also {
+					treeUpdateExecutor.shutdownNow()
+					treeUpdateExecutor.awaitTermination(100, TimeUnit.MILLISECONDS)
+					treeUpdateExecutor = Executors.newSingleThreadExecutor()
+					treeUpdateExecutor.submit(it)
+				}
+		}
 	}
 
 	private fun URI.scan(force: Boolean = false) = ScanWorker(this to force)
@@ -622,20 +684,28 @@ class ManagerController {
 			multiProgress.update(toString(), progress)
 
 			val additional = when (info) {
-				is String -> URLDecoder.decode(info, "UTF-8").removePrefix("file://")
-				is MediaItem -> URLDecoder.decode(info.uri, "UTF-8").removePrefix("file://")
-				else -> "media"
+				is String -> info
+				is SmbFile -> "Scanning ${info.path.uriDecode().removeSuffix("/")} ..."
+				is File -> "Scanning ${info.absolutePath.uriDecode().removePrefix("file://").removeSuffix("/")} ..."
+				is MediaItem -> "Scanning ${info.uri.uriDecode().removePrefix("file://").removeSuffix("/")} ..."
+				else -> "Scanning media ..."
 			}
-			labelStatus.text = when {
-				multiProgress.indeterminate -> "Scanning ${additional} ..."
-				else -> "${(multiProgress.value * 100).toInt()}% (${multiProgress.progress}/${multiProgress.total}) Scanning ${additional} ..."
+			val prefix = when {
+				multiProgress.indeterminate -> ""
+				else -> "${(multiProgress.value * 100).toInt()}% (${multiProgress.progress}/${multiProgress.total}) "
 			}
-			if (info is Collection<*>) info
-				.filterIsInstance<MediaItem>()
-				.takeIf { it.isNotEmpty() }
-				?.let { UpdateTreeWorker(tableData to it) }
-				?.also { treeUpdateExecutor.submit(it) }
-			if (info is MediaItem) UpdateTreeWorker(tableData to listOf(info)).also { treeUpdateExecutor.submit(it) }
+
+			labelStatus.text = "${prefix}${additional}"
+
+			//if (!updatingWholeTreeInProgress) {
+			//	if (info is Collection<*>) info
+			//		.filterIsInstance<MediaItem>()
+			//		.takeIf { it.isNotEmpty() }
+			//		?.let { UpdateTreeWorker(tableData to it) }
+			//		?.also { treeUpdateExecutor.submit(it) }
+			//	if (info is MediaItem) UpdateTreeWorker(tableData to listOf(info))
+			//		.also { treeUpdateExecutor.submit(it) }
+			//}
 		}
 		.onSuccess {
 			multiProgress.update(toString(), null)
@@ -796,6 +866,23 @@ class ManagerController {
 		if (this is Device && type == DeviceType.SMB) {
 			menuItems.add(createContextMenuItem("Properties", Icons.SETTINGS) {
 				AddSambaShareDialog(this).showAndWait().orElse(null)?.also { Database.save(it) }
+			})
+		}
+		if (this is Device && !isPrimary) {
+			menuItems.add(createContextMenuItem("Remove device", Icons.TRASH) {
+				val result = Alert(Alert.AlertType.CONFIRMATION)
+					.apply {
+						title = "Removal confirmation"
+						headerText = "Do you want to remove ${name} from your collection?"
+						buttonTypes.setAll(ButtonType.YES, ButtonType.NO)
+					}
+					.showAndWait()
+					?.orElse(ButtonType.NO)
+				if (result == ButtonType.YES) {
+					Database.delete(this)
+					tableData.root.children.sortWith(dataTreeComparator)
+					tableData.refresh()
+				}
 			})
 		}
 		return menuItems.takeIf { it.isNotEmpty() }?.toTypedArray()?.let { ContextMenu(*it) }

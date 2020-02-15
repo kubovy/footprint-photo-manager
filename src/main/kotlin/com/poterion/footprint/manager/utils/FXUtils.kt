@@ -1,7 +1,11 @@
 package com.poterion.footprint.manager.utils
 
 import com.poterion.footprint.manager.Icons
-import com.poterion.footprint.manager.data.*
+import com.poterion.footprint.manager.data.Device
+import com.poterion.footprint.manager.data.MediaItem
+import com.poterion.footprint.manager.data.Notification
+import com.poterion.footprint.manager.data.Setting
+import com.poterion.footprint.manager.data.UriItem
 import com.poterion.footprint.manager.enums.DeviceType
 import com.poterion.footprint.manager.enums.NotificationType
 import com.poterion.footprint.manager.model.VirtualItem
@@ -32,8 +36,7 @@ private fun <T> TreeItem<T>.monitorExpansion(key: T.() -> String?) = monitorExpa
 				else previous
 					?.also { Database.delete(it) }
 			}
-		}
-)
+		})
 
 fun TreeItem<UriItem>.getParentItem(mediaItem: MediaItem): TreeItem<UriItem>? {
 	var parentItem: TreeItem<UriItem>? = takeIf { it.value?.id == mediaItem.deviceId }

@@ -9,11 +9,11 @@ import javafx.scene.control.ProgressIndicator
 class MultiProgress(private val progressBar: ProgressBar? = null) {
 	private var data = mutableMapOf<String, Progress>()
 
-	val progress: Int
-		get() = data.values.sumBy { it.progress.get() }
+	val progress: Long
+		get() = data.values.map { it.progress.toLong() }.reduce { acc, l -> acc + l }
 
-	val total: Int
-		get() = data.values.sumBy { it.total.get() }
+	val total: Long
+		get() = data.values.map { it.total.toLong() }.reduce { acc, l -> acc + l }
 
 	val indeterminate: Boolean
 		get() = progress < 0
@@ -31,8 +31,8 @@ class MultiProgress(private val progressBar: ProgressBar? = null) {
 	fun update(key: String, progress: Progress?) {
 		if (progress != null) {
 			data.getOrPut(key, { Progress(-1, 0) }).also {
-				it.progress.set(progress.progress.get())
-				it.total.set(progress.total.get())
+				it.set(progress.progress)
+				it.setTotal(progress.total)
 			}
 		} else {
 			data.remove(key)
