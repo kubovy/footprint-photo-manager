@@ -1,3 +1,19 @@
+/******************************************************************************
+ * Copyright (C) 2020 Jan Kubovy (jan@kubovy.eu)                              *
+ *                                                                            *
+ * This program is free software: you can redistribute it and/or modify       *
+ * it under the terms of the GNU General Public License as published by       *
+ * the Free Software Foundation, either version 3 of the License, or          *
+ * (at your option) any later version.                                        *
+ *                                                                            *
+ * This program is distributed in the hope that it will be useful,            *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of             *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *
+ * GNU General Public License for more details.                               *
+ *                                                                            *
+ * You should have received a copy of the GNU General Public License          *
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.      *
+ ******************************************************************************/
 package com.poterion.footprint.manager
 
 import com.poterion.footprint.manager.data.Device
@@ -103,7 +119,7 @@ class ManagerController {
 		fun get(stage: Stage): Parent {
 			val fxmlLoader = FXMLLoader()
 			val root =
-				fxmlLoader.load<Pane>(ManagerController::class.java.getResource("/com/poterion/footprint/manager/main.fxml").openStream())
+					fxmlLoader.load<Pane>(ManagerController::class.java.getResource("/com/poterion/footprint/manager/main.fxml").openStream())
 			val controller = fxmlLoader.getController<ManagerController>() as ManagerController
 			controller.stage = stage
 			controller.start()
@@ -264,8 +280,8 @@ class ManagerController {
 
 		tableMetadata.root = TreeItem(null)
 		val columnMetadataNameWidth =
-			Database.list(Setting::class).find { it.name == Setting.COLUMN_METADATA_NAME_WIDTH }
-				?: Setting(name = Setting.COLUMN_METADATA_NAME_WIDTH, value = "${200.0}")
+				Database.list(Setting::class).find { it.name == Setting.COLUMN_METADATA_NAME_WIDTH }
+					?: Setting(name = Setting.COLUMN_METADATA_NAME_WIDTH, value = "${200.0}")
 		columnDataName.prefWidth = columnMetadataNameWidth.value?.toDoubleOrNull() ?: 200.0
 		columnDataName.widthProperty()
 			.addListener { _, _, v -> Database.save(columnMetadataNameWidth.apply { value = "${v}" }) }
@@ -825,8 +841,7 @@ class ManagerController {
 	}
 
 	private fun createContextMenuItem(title: String, icon: Icons, action: () -> Unit): MenuItem =
-		MenuItem(title, icon.toImageView()).apply { setOnAction { action() } }
-
+			MenuItem(title, icon.toImageView()).apply { setOnAction { action() } }
 
 	private fun UriItem.createContextMenu(): ContextMenu? {
 		val uri = toUriOrNull()
@@ -887,7 +902,6 @@ class ManagerController {
 		}
 		return menuItems.takeIf { it.isNotEmpty() }?.toTypedArray()?.let { ContextMenu(*it) }
 	}
-
 
 	private fun Notification.createContextMenu(): ContextMenu? {
 		val menuItems = mutableListOf<MenuItem>()

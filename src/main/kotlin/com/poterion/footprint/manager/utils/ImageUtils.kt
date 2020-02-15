@@ -1,3 +1,19 @@
+/******************************************************************************
+ * Copyright (C) 2020 Jan Kubovy (jan@kubovy.eu)                              *
+ *                                                                            *
+ * This program is free software: you can redistribute it and/or modify       *
+ * it under the terms of the GNU General Public License as published by       *
+ * the Free Software Foundation, either version 3 of the License, or          *
+ * (at your option) any later version.                                        *
+ *                                                                            *
+ * This program is distributed in the hope that it will be useful,            *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of             *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *
+ * GNU General Public License for more details.                               *
+ *                                                                            *
+ * You should have received a copy of the GNU General Public License          *
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.      *
+ ******************************************************************************/
 package com.poterion.footprint.manager.utils
 
 import com.poterion.footprint.manager.Icons
@@ -69,7 +85,7 @@ private fun ImageReader.calculateHeight(requestedWidth: Int = 0, requestedHeight
 }
 
 private fun ImageReader.calculateDimmensions(requestedWidth: Int = 0, requestedHeight: Int = 0) =
-	Dimension(calculateWidth(requestedWidth, requestedHeight), calculateHeight(requestedWidth, requestedHeight))
+		Dimension(calculateWidth(requestedWidth, requestedHeight), calculateHeight(requestedWidth, requestedHeight))
 
 private fun MediaItem.writeThumbnail(thumbnailFile: File,
 									 extension: String,
@@ -199,13 +215,13 @@ fun MediaItem.getCachedImage(width: Int = 0, height: Int = 0): File {
 }
 
 fun MediaItem.getImageThumbnail(width: Int = 0, height: Int = 0): File =
-	getCachedImage(width, height).let { cachedFile ->
-		if (!cachedFile.exists() || cachedFile.length() == 0L) measureTime(
-				"Thumbnail ${cachedFile} generated") {
-			writeThumbnail(cachedFile, toFileObject()?.extension?.toLowerCase() ?: "", width, height)
+		getCachedImage(width, height).let { cachedFile ->
+			if (!cachedFile.exists() || cachedFile.length() == 0L) measureTime(
+					"Thumbnail ${cachedFile} generated") {
+				writeThumbnail(cachedFile, toFileObject()?.extension?.toLowerCase() ?: "", width, height)
+			}
+			cachedFile
 		}
-		cachedFile
-	}
 
 fun MediaItem.getVideoThumbnail(width: Int = 0, height: Int = 0): File {
 	val cacheFile = getCachedImage(width, height)

@@ -1,4 +1,4 @@
-rootProject.name = 'manager'
+rootProject.name = 'footprint'
 include 'kotlin-utils'
 include 'javafx-utils'
 

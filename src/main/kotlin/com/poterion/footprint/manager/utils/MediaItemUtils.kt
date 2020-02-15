@@ -1,3 +1,19 @@
+/******************************************************************************
+ * Copyright (C) 2020 Jan Kubovy (jan@kubovy.eu)                              *
+ *                                                                            *
+ * This program is free software: you can redistribute it and/or modify       *
+ * it under the terms of the GNU General Public License as published by       *
+ * the Free Software Foundation, either version 3 of the License, or          *
+ * (at your option) any later version.                                        *
+ *                                                                            *
+ * This program is distributed in the hope that it will be useful,            *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of             *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *
+ * GNU General Public License for more details.                               *
+ *                                                                            *
+ * You should have received a copy of the GNU General Public License          *
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.      *
+ ******************************************************************************/
 package com.poterion.footprint.manager.utils
 
 import com.poterion.footprint.manager.data.MediaItem
@@ -43,47 +59,47 @@ fun MediaItem.typedMetadata(directory: String,
 							valueType: TagValueType,
 							chooser: (List<MetadataTag>) -> MetadataTag?,
 							vararg tagTypes: Int): List<MetadataTag>? =
-	Database.find(MetadataTag::class) { builder, root ->
-		listOf(builder.equal(root.get<MetadataTag>("mediaItemId"), id),
-			   builder.equal(root.get<MetadataTag>("directory"), directory),
-			   builder.equal(root.get<MetadataTag>("valueType"), valueType),
-			   root.get<MetadataTag>("tagType").`in`(tagTypes.toList()))
-	}.groupBy { it.tagType }
-		.let { map -> tagTypes.map { map.getOrDefault(it, emptyList()).let(chooser) } }
-		.filterNotNull()
-		.takeIf { it.size == tagTypes.size }
+		Database.find(MetadataTag::class) { builder, root ->
+			listOf(builder.equal(root.get<MetadataTag>("mediaItemId"), id),
+				   builder.equal(root.get<MetadataTag>("directory"), directory),
+				   builder.equal(root.get<MetadataTag>("valueType"), valueType),
+				   root.get<MetadataTag>("tagType").`in`(tagTypes.toList()))
+		}.groupBy { it.tagType }
+			.let { map -> tagTypes.map { map.getOrDefault(it, emptyList()).let(chooser) } }
+			.filterNotNull()
+			.takeIf { it.size == tagTypes.size }
 
 fun MediaItem.namedMetadata(directory: String,
 							valueType: TagValueType,
 							chooser: (List<MetadataTag>) -> MetadataTag?,
 							vararg names: String): List<MetadataTag>? =
-	Database.find(MetadataTag::class) { builder, root ->
-		listOf(builder.equal(root.get<MetadataTag>("mediaItemId"), id),
-			   builder.equal(root.get<MetadataTag>("directory"), directory),
-			   builder.equal(root.get<MetadataTag>("valueType"), valueType),
-			   root.get<MetadataTag>("name").`in`(names.toList()))
-	}.groupBy { it.name }
-		.let { map -> names.map { map.getOrDefault(it, emptyList()).let(chooser) } }
-		.filterNotNull()
-		.takeIf { it.size == names.size }
+		Database.find(MetadataTag::class) { builder, root ->
+			listOf(builder.equal(root.get<MetadataTag>("mediaItemId"), id),
+				   builder.equal(root.get<MetadataTag>("directory"), directory),
+				   builder.equal(root.get<MetadataTag>("valueType"), valueType),
+				   root.get<MetadataTag>("name").`in`(names.toList()))
+		}.groupBy { it.name }
+			.let { map -> names.map { map.getOrDefault(it, emptyList()).let(chooser) } }
+			.filterNotNull()
+			.takeIf { it.size == names.size }
 
 fun MediaItem.metadata(directory: String,
 					   chooser: (List<MetadataTag>) -> MetadataTag?,
 					   vararg tagTypes: Int): List<MetadataTag>? =
-	Database.find(MetadataTag::class) { builder, root ->
-		listOf(builder.equal(root.get<MetadataTag>("mediaItemId"), id),
-			   builder.equal(root.get<MetadataTag>("directory"), directory),
-			   root.get<MetadataTag>("tagType").`in`(tagTypes.toList()))
-	}.groupBy { it.tagType }
-		.let { map -> tagTypes.map { map.getOrDefault(it, emptyList()).let(chooser) } }
-		.filterNotNull()
-		.takeIf { it.size == tagTypes.size }
+		Database.find(MetadataTag::class) { builder, root ->
+			listOf(builder.equal(root.get<MetadataTag>("mediaItemId"), id),
+				   builder.equal(root.get<MetadataTag>("directory"), directory),
+				   root.get<MetadataTag>("tagType").`in`(tagTypes.toList()))
+		}.groupBy { it.tagType }
+			.let { map -> tagTypes.map { map.getOrDefault(it, emptyList()).let(chooser) } }
+			.filterNotNull()
+			.takeIf { it.size == tagTypes.size }
 
 private fun <R : Any> List<List<MetadataTag>?>.findMetadata(transformation: (MetadataTag) -> R?,
 															chooser: (List<List<R>>) -> List<R>?): List<R>? =
-	filterNotNull()
-		.mapNotNull { l -> l.map(transformation).takeIf { r -> r.none { it == null } }?.filterNotNull() }
-		.let(chooser)
+		filterNotNull()
+			.mapNotNull { l -> l.map(transformation).takeIf { r -> r.none { it == null } }?.filterNotNull() }
+			.let(chooser)
 
 val MediaItem.resolution: Pair<Int, Int>?
 	get() {
