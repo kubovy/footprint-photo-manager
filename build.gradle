@@ -189,7 +189,7 @@ repositories {
 }
 
 dependencies {
-    compile fileTree(include: ['*.jar'], dir: 'libs')
+    //compile fileTree(include: ['*.jar'], dir: 'libs')
     compile project(":kotlin-utils")
     compile project(":javafx-utils")
 
@@ -230,6 +230,9 @@ dependencies {
 
     // JavaFX
     //implementation 'org.controlsfx:controlsfx:8.40.16'
+
+    // Commons
+    compile "commons-cli:commons-cli:1.4"
 
     // Logger
     api 'org.slf4j:slf4j-api:1.7.28'

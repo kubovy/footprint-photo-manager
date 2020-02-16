@@ -16,7 +16,6 @@
  ******************************************************************************/
 package com.poterion.footprint.manager.workers
 
-import com.drew.imaging.ImageMetadataReader
 import com.poterion.footprint.manager.Main
 import com.poterion.footprint.manager.data.BaseItem
 import com.poterion.footprint.manager.data.Device
@@ -35,16 +34,16 @@ import com.poterion.footprint.manager.utils.deleteCachedFile
 import com.poterion.footprint.manager.utils.detectMetadataTag
 import com.poterion.footprint.manager.utils.device
 import com.poterion.footprint.manager.utils.deviceType
+import com.poterion.footprint.manager.utils.extractMetadata
 import com.poterion.footprint.manager.utils.getCachedImage
-import com.poterion.footprint.manager.utils.getTagValueType
 import com.poterion.footprint.manager.utils.inputStream
-import com.poterion.footprint.manager.utils.isRelevant
 import com.poterion.footprint.manager.utils.mediaItems
 import com.poterion.footprint.manager.utils.metadata
 import com.poterion.footprint.manager.utils.toFileObject
 import com.poterion.footprint.manager.utils.toMediaItemOrNull
 import com.poterion.footprint.manager.utils.toUriOrNull
 import com.poterion.utils.kotlin.calculateHash
+import com.poterion.utils.kotlin.copyTo
 import com.poterion.utils.kotlin.measureTime
 import com.poterion.utils.kotlin.parallelStreamIntermediate
 import com.poterion.utils.kotlin.parallelStreamMap
@@ -54,7 +53,6 @@ import com.poterion.utils.kotlin.uriEncode
 import jcifs.smb.SmbAuthException
 import jcifs.smb.SmbFile
 import org.slf4j.LoggerFactory
-import java.io.BufferedInputStream
 import java.io.File
 import java.net.URI
 import java.nio.file.Path
@@ -128,7 +126,7 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 									?.also { Database.saveAll(it) }
 							}
 							.map { (item, _) -> item }
-							.also { update(progress.addAndGet(CHUNK_SIZE) to it) }
+							.also { update(progress.add(CHUNK_SIZE) to it) }
 					}
 					.flatten()
 
@@ -182,7 +180,10 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 			}
 		}
 
-		override fun close() = closeables.forEach { it.close() }
+		override fun close() {
+			closeables.forEach { it.close() }
+			smbCachePath?.toFile()?.delete()
+		}
 	}
 
 	private fun Device.buildSambaFileCache() = takeIf { type == DeviceType.SMB }
@@ -224,53 +225,60 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 				?.toFileObject()
 				?.smbFile
 				?.takeIf { it.exists() }
-//				?.let { smbFile -> smbCachePath?.let { smbFile to it } }
-//				?.let { (smbFile, cachePath) ->
-//					try {
-//						smbFile to cachePath.resolve("${type}.tag.gz")
-//					} catch (t: Throwable) {
-//						LOGGER.error(t.message, t)
-//						null
-//					}
-//				}
-//				?.also { (smbFile, _) -> update(progress.setTotal(smbFile.length()) to "Downloading ${type} from server...") }
-//				?.let { (smbFile, cacheFile) -> smbFile to cacheFile.toFile() }
-//				?.also { (smbFile, cacheFile) ->
-//					var i = 0
-//					smbFile.inputStream.copy(cacheFile.outputStream()) { size ->
-//						if ((i++) % 100 == 0) {
-//							update(progress.set(size) to "${size.toKI()} ${type} downloaded from server ...")
-//						}
-//					}
-//				}
-//				?.let { (_, cacheFile) -> cacheFile }
-				?.let { cacheFile -> smbCachePath?.let { cacheFile to it } }
-				?.let { (cacheFile, cachePath) ->
+
+				?.let { smbFile -> smbCachePath?.let { smbFile to it } }
+				?.let { (smbFile, cachePath) ->
 					try {
-						cacheFile to cachePath.resolve(type)
+						val cacheFile = cachePath.resolve("${type}.tar.gz").toFile()
+						if (cacheFile.exists()) cacheFile.delete()
+						cachePath.toFile().mkdirs()
+						smbFile to cacheFile
 					} catch (t: Throwable) {
 						LOGGER.error(t.message, t)
 						null
 					}
 				}
-				//?.let { (cacheFile, cacheFolder) -> cacheFile to cacheFolder.toFile() }
-				//?.let { (cacheFile, cacheFolder) -> cacheFile to cacheFolder.toPath() }
-				//?.also { (_, _) -> update(progress.setIndeterminate() to "Extracting ${type} ...") }
-				?.takeIf { (_, cacheFolder) -> !cacheFolder.toFile().exists() }
-				?.also { (cacheFile, cacheFolder) ->
-					cacheFile.inputStream.use {
-						var i = 0
-						var totalSize: Long = 0
-						it.unGzipTarTo(cacheFolder) { size ->
-							totalSize += size
-							if ((i++) % 1000 == 0) {
-								update(progress.setIndeterminate() to "Extracting ${type}: ${totalSize.toKI()} ...")
+				?.also { (smbFile, _) -> update(progress.addTotal(smbFile.length()) to "Downloading ${type} from server...") }
+				?.also { (smbFile, cacheFile) ->
+					var i = 0
+					var previousSize = 0L
+					smbFile.inputStream.buffered().use { inputStream ->
+						cacheFile.outputStream().buffered().use { outputStream ->
+							inputStream.copyTo(outputStream) { size ->
+								if ((i++) % 100 == 0) {
+									update(progress.add(size - previousSize) to "${size.toKI()} ${type} downloaded from server ...")
+									previousSize = size
+								}
 							}
 						}
 					}
 				}
-			//?.also { (cacheFile) -> cacheFile.delete() }
-			//?.also { update(progress.finish() to "Extracting of ${type} finished") }
+				?.let { (_, cacheFile) -> cacheFile }
+
+				?.let { cacheFile -> smbCachePath?.let { cacheFile to it } }
+				?.let { (cacheFile, cachePath) ->
+					try {
+						val cacheFolder = cachePath.resolve(type)
+						if (cacheFolder.toFile().exists()) cacheFolder.toFile().deleteRecursively()
+						cacheFile to cacheFolder
+					} catch (t: Throwable) {
+						LOGGER.error(t.message, t)
+						null
+					}
+				}
+				?.also { (cacheFile, cacheFolder) ->
+					cacheFile.inputStream().buffered().use { inputStream ->
+						var i = 0
+						var totalSize: Long = 0
+						inputStream.unGzipTarTo(cacheFolder) { size ->
+							totalSize += size
+							if ((i++) % 100 == 0) {
+								update(progress to "Extracting ${type}: ${totalSize.toKI()} ...")
+							}
+						}
+					}
+				}
+				?.also { update(progress to "Extracting of ${type} finished") }
 		}
 
 		private fun clear() = try {
@@ -280,12 +288,18 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 				?.toFile()
 				?.takeIf { it.exists() }
 				?.deleteRecursively()
+			this@downloadSambaCache
+				.smbCachePath
+				?.resolve("${type}.tar.gz")
+				?.toFile()
+				?.takeIf { it.exists() }
+				?.delete()
 		} catch (t: Throwable) {
 			LOGGER.error(t.message, t)
 		}
 
 		override fun close() {
-			// TODO clear()
+			clear()
 		}
 	}
 
@@ -311,7 +325,10 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 					.matchEntire(line)
 					?.groupValues
 					?.detectMetadataTag()
-				if (metadataTag != null) metadataTags.add(metadataTag)
+				if (metadataTag != null) {
+					metadataTag.mediaItemId = id
+					metadataTags.add(metadataTag)
+				}
 			}
 			metadataTags
 		}
@@ -419,13 +436,9 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 			}
 
 	private fun MediaItem.process(force: Boolean) {
-		val start = System.currentTimeMillis()
-		if (!isDirty && !force) return
-
-		val hash = takeUnless { isDirty || hash == null }?.hash
-			?: smbFileList[uri]?.get(4)?.toUpperCase()
-			?: measureTime("Generated hash %s for ${this.uri}") { inputStream()?.calculateHash("SHA-256") }
-			?: ""
+		measureTime("${uri}: Processed") {
+			//val start = System.currentTimeMillis()
+			if (force || measureTime("${uri}: Dirty = %s") { isDirty }) {
 
 //		if (update || contentHash == null) inputStream()?.use { inputStream ->
 //			try {
@@ -445,94 +458,51 @@ class ScanWorker(arg: Pair<URI, Boolean>) :
 //			}
 //		}
 
-		if (isDirty) also {
-			it.length = smbFileList[uri]?.get(1)?.toLongOrNull() ?: toFileObject()?.length ?: 0
-			it.hash = hash
-			//it.contentHash = contentHash
-			it.createdAt = Instant
-				.ofEpochMilli(smbFileList[uri]?.get(2)?.toLongOrNull() ?: toFileObject()?.createdAt ?: 0)
-			it.updatedAt = Instant
-				.ofEpochMilli(smbFileList[uri]?.get(3)?.toLongOrNull() ?: toFileObject()?.updatedAt ?: 0)
-			Database.deleteAll(metadata)
-		}
-
-		val entities = mutableListOf<BaseItem>(this)
-
-		val mediaItemMetadata = metadata
-		val cachedMetadata: List<MetadataTag> = when (deviceType) {
-			DeviceType.SMB -> findSambaCacheMetadata()
-			else -> emptyList()
-		}.map { m -> m to mediaItemMetadata.find { it.directory == m.directory && it.tagType == m.tagType } }
-			.map { (m, i) -> if (isDirty) m else (i ?: m) }
-		LOGGER.info("Found ${cachedMetadata.size} cached metadata tags")
-
-		entities.addAll(cachedMetadata)
-
-		if (cachedMetadata.isEmpty()) inputStream()
-			?.let { BufferedInputStream(it) }
-			?.use { inputStream ->
-				try {
-					val fileMetadata = ImageMetadataReader.readMetadata(inputStream)
-					for (directory in fileMetadata.directories) {
-						for (tag in directory.tags) if (directory.isRelevant(tag.tagType)) {
-							var metadataTag: MetadataTag? = null
-							try {
-								metadataTag = mediaItemMetadata
-									.find { it.directory == directory.name && it.tagType == tag.tagType }
-									?: MetadataTag(
-											mediaItemId = id,
-											directory = directory.name,
-											name = tag.tagName,
-											tagType = tag.tagType,
-											valueType = directory.getTagValueType(tag.tagType))
-
-								metadataTag.apply {
-									raw = directory.getString(tag.tagType)
-									description = tag.description
-								}
-
-								entities.add(metadataTag)
-							} catch (t: Throwable) {
-								LOGGER.error("Error while processing metadata of ${this.uri}: ${t.message}", t)
-								Notifications.notify(value = t.message
-									?: "${t.javaClass.simpleName} occurred while processing metadata.",
-													 type = NotificationType.METADATA_ERROR,
-													 name = directory.name,
-													 deviceId = deviceId,
-													 mediaItemId = id,
-													 metadataTagId = metadataTag?.id)
-							}
-						}
-						if (directory.hasErrors()) {
-							for (error in directory.errors) {
-								LOGGER.error("ERROR: ${error}")
-								Notifications.notify(value = error,
-													 type = NotificationType.METADATA_ERROR,
-													 name = directory.name,
-													 deviceId = deviceId,
-													 mediaItemId = id)
-							}
-						}
+				also {
+					measureTime("${it.uri}: Attributes") {
+						val hash = takeUnless { force || hash == null || isDirty }?.hash
+							?: smbFileList[uri]?.get(4)?.toUpperCase()
+							?: measureTime("${this.uri}: Generated hash %s") { inputStream()?.calculateHash("SHA-256") }
+							?: ""
+						it.length = smbFileList[uri]?.get(1)?.toLongOrNull() ?: toFileObject()?.length ?: 0
+						it.hash = hash
+						//it.contentHash = contentHash
+						it.createdAt = Instant.ofEpochMilli(smbFileList[uri]?.get(2)?.toLongOrNull()
+																?: toFileObject()?.createdAt ?: 0)
+						it.updatedAt = Instant.ofEpochMilli(smbFileList[uri]?.get(3)?.toLongOrNull()
+																?: toFileObject()?.updatedAt ?: 0)
 					}
-				} catch (t: Throwable) {
-					LOGGER.error("Error while processing ${this.uri}: ${t.message}", t)
-					Notifications.notify(
-							value = t.message ?: "${t.javaClass.simpleName} occurred while processing metadata.",
-							type = NotificationType.PROCESSING_PROBLEM,
-							deviceId = deviceId,
-							mediaItemId = id)
 				}
+
+				measureTime("${uri}: Metadata deleted") { Database.deleteAll(metadata) }
+
+				val entities = mutableListOf<BaseItem>(this)
+				val cachedMetadata: List<MetadataTag> = measureTime("${uri}: Cached metadata") {
+					when (deviceType) {
+						DeviceType.SMB -> findSambaCacheMetadata()
+						else -> emptyList()
+					}
+				}
+				LOGGER.info("${uri}: Found ${cachedMetadata.size} cached metadata tags")
+
+				measureTime("${uri}: Metadata added") {
+					entities.addAll(cachedMetadata)
+				}
+
+				if (cachedMetadata.isEmpty()) measureTime("${uri}: Metadata extracted ") {
+					entities.addAll(extractMetadata())
+				}
+
+				measureTime("${uri}: Saved") { Database.saveAll(entities) }
+				//LOGGER.info("Processed ${this.uri} with ${entities.size - 1} tags in ${System.currentTimeMillis() - start}ms")
+
+//				if (deviceType.remote) {
+//					if (imageFormat != null) getImageThumbnail(width = CACHE_BBOX)
+//					else if (videoFormat != null) getVideoThumbnail(width = CACHE_BBOX)
+//				}
 			}
-
-		Database.saveAll(entities)
-		LOGGER.info("Processed ${this.uri} with ${entities.size - 1} tags in ${System.currentTimeMillis() - start}ms")
-
-//		if (deviceType.remote) {
-//			if (imageFormat != null) getImageThumbnail(width = CACHE_BBOX)
-//			else if (videoFormat != null) getVideoThumbnail(width = CACHE_BBOX)
-//		}
-
-		deleteCachedFile()
+			measureTime("${uri}: Cache deleted") { deleteCachedFile() }
+		}
 	}
 
 	private val MediaItem.isUnscanned: Boolean

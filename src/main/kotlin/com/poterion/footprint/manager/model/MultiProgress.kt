@@ -26,10 +26,19 @@ class MultiProgress(private val progressBar: ProgressBar? = null) {
 	private var data = mutableMapOf<String, Progress>()
 
 	val progress: Long
-		get() = data.values.map { it.progress.toLong() }.reduce { acc, l -> acc + l }
+		get() = data.values.map { it.progress.toLong() }
+			.filter { it >= 0 }
+			.takeIf { it.isNotEmpty() }
+			?.reduce { acc, l -> acc + l }
+			?: (if (data.values.all { it.progress.toLong() == -1L }) -1L else 0)
 
 	val total: Long
-		get() = data.values.map { it.total.toLong() }.reduce { acc, l -> acc + l }
+		get() = data.values
+			.map { it.total.toLong() }
+			.filter { it >= 0 }
+			.takeIf { it.isNotEmpty() }
+			?.reduce { acc, l -> acc + l }
+			?: 0
 
 	val indeterminate: Boolean
 		get() = progress < 0

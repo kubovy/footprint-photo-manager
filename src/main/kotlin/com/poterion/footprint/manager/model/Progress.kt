@@ -66,9 +66,11 @@ class Progress(progress: Number = 0, total: Number = 0) {
 
 	fun incrementAndGet() = apply { progressAtomic.incrementAndGet() }
 
-	fun addAndGet(number: Number) = apply { progressAtomic.addAndGet(number.toLong()) }
+	fun add(number: Number) = apply { progressAtomic.addAndGet(number.toLong()) }
 
-	fun getAndAdd(number: Number) = apply { progressAtomic.getAndAdd(number.toLong()) }
+	fun addTotal(number: Number) = apply {
+		totalAtomic.addAndGet(number.toLong())
+	}
 
 	fun setTotal(number: Number) = apply {
 		totalAtomic.set(number.toLong())

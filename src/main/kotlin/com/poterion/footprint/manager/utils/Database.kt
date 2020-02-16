@@ -89,12 +89,8 @@ object Database {
 					cache[type] = listFromDB(type).map { it.id!! to it }.toMap().toMutableMap()
 				}
 			}
-			lock.write {
-				for (mediaItem in list(MediaItem::class)) {
-					val irrelevant = mediaItem.metadata.filterNot { it.isRelevant() }
-					deleteAll(irrelevant)
-				}
-			}
+			deleteAll(list(MediaItem::class).flatMap { item -> item.metadata.filterNot { it.isRelevant() } })
+			deleteAll(list(MetadataTag::class).filter { it.mediaItemId == null })
 		} catch (t: Throwable) {
 			LOGGER.error("Initial SessionFactory creation failed: ${t}", t)
 			throw ExceptionInInitializerError(t)
@@ -153,8 +149,8 @@ object Database {
 		}
 		session.transaction.commit()
 		if (success) {
-			if (entity is CacheableItem) {
-				lock.write { cache.getOrPut(entity::class) { mutableMapOf() }[entity.id!!] = entity }
+			if (entity is CacheableItem) lock.write {
+				cache.getOrPut(entity::class) { mutableMapOf() }[entity.id!!] = entity
 			}
 			onSaveListeners.forEach { it(entity) }
 		}
@@ -171,46 +167,46 @@ object Database {
 			LOGGER.error(t.message, t)
 		}
 		session.transaction.commit()
-		for (entity in successful) {
-			if (entity is CacheableItem) {
-				lock.write { cache.getOrPut(entity::class) { mutableMapOf() }[entity.id!!] = entity }
+		val successfulCachable = successful.mapNotNull { it as? CacheableItem }
+		if (successfulCachable.isNotEmpty()) lock.write {
+			for (entity in successfulCachable) {
+				cache.getOrPut(entity::class) { mutableMapOf() }[entity.id!!] = entity
 			}
+		}
+		for (entity in successful) {
 			onSaveListeners.forEach { it(entity) }
 		}
 	}
 
-	fun <T : BaseItem> delete(entity: T) = openSession().use { session ->
-		if (entity is MediaItem) entity.removeCache()
-		session.beginTransaction()
-		try {
-			session.deleteInternal(entity)
-		} catch (t: Throwable) {
-			LOGGER.error(t.message, t)
-		}
-		session.transaction.commit()
-	}
+	fun <T : BaseItem> delete(entity: T) = deleteAll(listOf(entity))
 
-	fun <T : BaseItem> deleteAll(entities: Iterable<T>) = openSession().use { session ->
-		entities.filterIsInstance<MediaItem>().forEach { it.removeCache() }
-		session.beginTransaction()
-		try {
-			entities.forEach { session.deleteInternal(it) }
-		} catch (t: Throwable) {
-			LOGGER.error(t.message, t)
-		}
-		session.transaction.commit()
-	}
+	fun <T : BaseItem> deleteAll(entities: Iterable<T>) {
+		val entitiesToDelete = mutableListOf<BaseItem>()
+		entitiesToDelete.addAll(entities)
+		entitiesToDelete.addAll(entitiesToDelete.filterIsInstance<Device>().flatMap { it.mediaItems })
+		entitiesToDelete.addAll(entitiesToDelete.filterIsInstance<MediaItem>().flatMap { it.metadata })
+		entitiesToDelete.addAll(entitiesToDelete.filterIsInstance<UriItem>()
+									.flatMap { e -> list(Setting::class).filter { it.name == Setting.EXPANDED && it.value == e.uri } })
+		entitiesToDelete.filterIsInstance<MediaItem>().forEach { it.removeCache() }
 
-	private fun <T : BaseItem> Session.deleteInternal(entity: T) {
-		if (entity is Device) entity.mediaItems.forEach { deleteInternal(it) }
-		if (entity is MediaItem) entity.metadata.forEach { deleteInternal(it) }
-		if (entity is UriItem) lock.read {
-			list(Setting::class)
-				.filter { it.name == Setting.EXPANDED && it.value == entity.uri }
-				.forEach { deleteInternal(it) }
+		openSession().use { session ->
+			var count = 1
+			session.beginTransaction()
+			try {
+				for (entity in entitiesToDelete) {
+					session.remove(entity)
+					count++
+					if (count % 1000 == 0) {
+						session.transaction.commit()
+						session.transaction.begin()
+					}
+				}
+			} catch (t: Throwable) {
+				LOGGER.error(t.message, t)
+			}
+			session.transaction.commit()
 		}
-		remove(entity)
-		if (entity is CacheableItem) lock.write { cache[entity::class]?.remove(entity.id) }
+		lock.write { entitiesToDelete.filterIsInstance<CacheableItem>().forEach { cache[it::class]?.remove(it.id) } }
 	}
 
 	fun addOnSaveListener(listener: (BaseItem) -> Unit) {

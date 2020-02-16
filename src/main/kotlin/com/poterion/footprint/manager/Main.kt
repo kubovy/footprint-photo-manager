@@ -20,17 +20,25 @@ import com.poterion.footprint.manager.data.Device
 import com.poterion.footprint.manager.data.Setting
 import com.poterion.footprint.manager.enums.NotificationType
 import com.poterion.footprint.manager.ui.PasswordDialog
+import com.poterion.footprint.manager.ui.ProgressDialog
 import com.poterion.footprint.manager.utils.Database
 import com.poterion.footprint.manager.utils.Notifications
 import com.poterion.footprint.manager.xuggle.SmbFileProtocolHandlerFactory
 import com.poterion.utils.kotlin.decrypt
 import com.poterion.utils.kotlin.encrypt
+import com.poterion.utils.kotlin.isPasswordForEncryptionSet
 import com.poterion.utils.kotlin.setPasswordForEncryption
 import com.xuggle.xuggler.io.URLProtocolManager
 import javafx.application.Application
 import javafx.application.Platform
 import javafx.scene.Scene
 import javafx.stage.Stage
+import org.apache.commons.cli.CommandLineParser
+import org.apache.commons.cli.DefaultParser
+import org.apache.commons.cli.HelpFormatter
+import org.apache.commons.cli.Option
+import org.apache.commons.cli.Options
+import org.apache.commons.cli.ParseException
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -49,6 +57,7 @@ class Main : Application() {
 			.get(System.getProperty("user.home"), ".config", "footprint")
 			.toAbsolutePath()
 		val CACHE_PATH: Path = CONFIG_PATH.resolve("cache")
+		var initialScan = true
 
 		init {
 			URLProtocolManager.getManager().registerFactory("smb", SmbFileProtocolHandlerFactory())
@@ -56,18 +65,69 @@ class Main : Application() {
 
 		@JvmStatic
 		fun main(args: Array<String>) {
-			launch(Main::class.java)
+			val password = Option.builder("p")
+				.longOpt("password")
+				.hasArg()
+				.argName("PASSWORD")
+				.desc("Vault password.")
+				.build()
+			val noScan = Option.builder()
+				.longOpt("no-scan")
+				.desc("Don't perform initial scan of local devices.")
+				.build()
+			val help = Option.builder("h")
+				.longOpt("help")
+				.desc("This screen.")
+				.build()
+
+			val options = Options()
+			options.addOption(password)
+			options.addOption(noScan)
+			options.addOption(help)
+
+			val parser: CommandLineParser = DefaultParser()
+			try {
+				val line = parser.parse(options, args)
+				if (line.hasOption("help")) {
+					val formatter = HelpFormatter()
+					formatter.printHelp("footprint", options)
+					exitProcess(0)
+				}
+
+				line.getOptionValue("password")?.also { setPasswordForEncryption(it) }
+				initialScan = !line.hasOption("no-scan")
+
+				launch(Main::class.java, *args)
+			} catch (e: ParseException) { // oops, something went wrong
+				System.err.println("Parsing failed.  Reason: " + e.message)
+				val formatter = HelpFormatter()
+				formatter.printHelp("poterion-monitor", options)
+				exitProcess(0)
+			}
 		}
 	}
 
 	override fun start(primaryStage: Stage) {
 		LOGGER.info("Starting...")
-		Database.list(Device::class)
+
+		val progressDialog = ProgressDialog("Loading collections").apply {
+			isResizable = true
+			setOnShown {
+				Thread {
+					Database.list(Device::class)
+					Platform.runLater { dismiss() }
+				}.start()
+			}
+		}
+		progressDialog.showAndWait()
 
 		val nonce = Database.list(Setting::class).find { it.name == "nonce" }
 		if (nonce != null) {
+			if (isPasswordForEncryptionSet() && nonce.value?.decrypt() != "DIY") {
+				setPasswordForEncryption("")
+			}
 			var password: String? = null
-			while (password == null) {
+			while (password == null && !isPasswordForEncryptionSet()) {
 				password = PasswordDialog().showAndWait().orElse(null)
 				if (password != null) try {
 					if (nonce.value?.decrypt(password) == "DIY") {
@@ -104,7 +164,7 @@ class Main : Application() {
 		val maximized = Database.list(Setting::class).find { it.name == Setting.WINDOW_MAXIMIZED }
 			?: Setting(name = Setting.WINDOW_MAXIMIZED, value = "${false}")
 
-		val root = ManagerController.get(primaryStage)
+		val root = ManagerController.get(primaryStage, initialScan)
 		primaryStage.title = APP_TITLE
 		primaryStage.scene = Scene(root,
 								   width.value?.toDoubleOrNull() ?: 1600.0,
