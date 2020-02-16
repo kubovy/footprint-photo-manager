@@ -447,6 +447,7 @@ class ManagerController {
 					headerText = "Do you want to remove ${name} from collection?\n" +
 							"(Files on the drive will not be touched)"
 					buttonTypes.setAll(ButtonType.YES, ButtonType.NO)
+					isResizable = true
 					//modality = Modality.APPLICATION_MODAL
 					//initOwner(stage.owner)
 				}
@@ -615,6 +616,7 @@ class ManagerController {
 					title = "New removable drive detected"
 					headerText = "New ${drive.systemDisplayName} drive detected."
 					contentText = "Scan new device?"
+					isResizable = true
 					buttonTypes.setAll(ButtonType.YES, ButtonType.NO)
 					//modality = Modality.APPLICATION_MODAL
 					//initOwner(stage.owner)
@@ -854,6 +856,7 @@ class ManagerController {
 						title = "Rescan confirmation"
 						headerText = "Do you want to rescan ${name}?"
 						buttonTypes.setAll(ButtonType.YES, ButtonType.NO)
+						isResizable = true
 					}
 					.showAndWait()
 					?.orElse(ButtonType.NO)
@@ -867,6 +870,7 @@ class ManagerController {
 						title = "Primary selection confirmation"
 						headerText = "Do you want to set ${name} as your primary storage?"
 						buttonTypes.setAll(ButtonType.YES, ButtonType.NO)
+						isResizable = true
 					}
 					.showAndWait()
 					?.orElse(ButtonType.NO)
@@ -890,6 +894,7 @@ class ManagerController {
 						title = "Removal confirmation"
 						headerText = "Do you want to remove ${name} from your collection?"
 						buttonTypes.setAll(ButtonType.YES, ButtonType.NO)
+						isResizable = true
 					}
 					.showAndWait()
 					?.orElse(ButtonType.NO)

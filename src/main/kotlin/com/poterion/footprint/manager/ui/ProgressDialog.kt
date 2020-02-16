@@ -36,6 +36,7 @@ class ProgressDialog(message: String, blocking: Boolean = true) : Dialog<Void>()
 		title = Main.APP_TITLE
 		headerText = message
 		graphic = Icons.SYNCHRONIZE.toImageView(32, 32)
+		isResizable = true
 
 		dialogPane.buttonTypes.addAll(ButtonType.CLOSE)
 		closeButton = (dialogPane.lookupButton(ButtonType.CLOSE) as Button).apply {

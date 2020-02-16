@@ -117,6 +117,7 @@ class AddSambaShareDialog(private val editDevice: Device? = null) : Dialog<Devic
 	init {
 		title = if (editDevice == null) "Add shared folder" else "Edit shared folder"
 		graphic = Icons.NAS.toImageView(64, 64)
+		isResizable = true
 		dialogPane.buttonTypes.addAll(saveButtonType, ButtonType.CANCEL)
 		buttonSave = (dialogPane.lookupButton(saveButtonType) as Button).apply { isDisable = true }
 

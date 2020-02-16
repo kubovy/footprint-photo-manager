@@ -65,6 +65,7 @@ class PasswordDialog(private val confirmation: Boolean = false) : Dialog<String>
 		title = Main.APP_TITLE
 		headerText = if (confirmation) "Create a new master password" else "Enter master password"
 		graphic = Icons.LOCK.toImageView(32, 32)
+		isResizable = true
 
 		dialogPane.buttonTypes.addAll(ButtonType.OK, ButtonType.CANCEL)
 		okButton = dialogPane.lookupButton(ButtonType.OK)
