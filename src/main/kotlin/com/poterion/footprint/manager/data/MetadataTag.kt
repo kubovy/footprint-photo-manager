@@ -60,7 +60,7 @@ data class MetadataTag(
 		var raw: String? = null,
 
 		@Column(columnDefinition = "TEXT")
-		var description: String? = null) : BaseItem {
+		var description: String? = null) : BaseItem, CacheableItem {
 
 	companion object {
 		const val COLUMN_MEDIA_ITEM_ID = "MEDIA_ITEM_ID"

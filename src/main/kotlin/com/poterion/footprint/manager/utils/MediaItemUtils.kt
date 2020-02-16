@@ -50,10 +50,7 @@ fun File.toMediaItemOrNull(): MediaItem? = FileObject(this).toMediaItemOrNull()
 fun SmbFile.toMediaItemOrNull(): MediaItem? = FileObject(this).toMediaItemOrNull()
 
 val MediaItem.metadata: Collection<MetadataTag>
-	get() = Database.find(MetadataTag::class) { builder, root ->
-		listOf(builder.equal(root.get<MetadataTag>("mediaItemId"),
-							 id))
-	}
+	get() = Database.list(MetadataTag::class).filter { it.mediaItemId == id }
 
 fun MediaItem.typedMetadata(directory: String,
 							valueType: TagValueType,

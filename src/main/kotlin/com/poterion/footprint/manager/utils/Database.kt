@@ -89,12 +89,10 @@ object Database {
 					cache[type] = listFromDB(type).map { it.id!! to it }.toMap().toMutableMap()
 				}
 			}
-			lock.write {
-				for (mediaItem in list(MediaItem::class)) {
-					val irrelevant = mediaItem.metadata.filterNot { it.isRelevant() }
-					deleteAll(irrelevant)
-				}
-			}
+			//for (mediaItem in list(MediaItem::class)) {
+			//	val irrelevant = mediaItem.metadata.filterNot { it.isRelevant() }
+			//	deleteAll(irrelevant)
+			//}
 		} catch (t: Throwable) {
 			LOGGER.error("Initial SessionFactory creation failed: ${t}", t)
 			throw ExceptionInInitializerError(t)
