@@ -20,6 +20,7 @@ import com.poterion.footprint.manager.data.Device
 import com.poterion.footprint.manager.data.Setting
 import com.poterion.footprint.manager.enums.NotificationType
 import com.poterion.footprint.manager.ui.PasswordDialog
+import com.poterion.footprint.manager.ui.ProgressDialog
 import com.poterion.footprint.manager.utils.Database
 import com.poterion.footprint.manager.utils.Notifications
 import com.poterion.footprint.manager.xuggle.SmbFileProtocolHandlerFactory
@@ -39,7 +40,6 @@ import org.apache.commons.cli.Option
 import org.apache.commons.cli.Options
 import org.apache.commons.cli.ParseException
 import org.slf4j.LoggerFactory
-import java.io.File
 import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.system.exitProcess
@@ -109,7 +109,17 @@ class Main : Application() {
 
 	override fun start(primaryStage: Stage) {
 		LOGGER.info("Starting...")
-		Database.list(Device::class)
+
+		val progressDialog = ProgressDialog("Loading collections").apply {
+			isResizable = true
+			setOnShown {
+				Thread {
+					Database.list(Device::class)
+					Platform.runLater { dismiss() }
+				}.start()
+			}
+		}
+		progressDialog.showAndWait()
 
 		val nonce = Database.list(Setting::class).find { it.name == "nonce" }
 		if (nonce != null) {
