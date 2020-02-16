@@ -30,6 +30,8 @@ import com.poterion.footprint.manager.model.VirtualItem
 import com.poterion.footprint.manager.ui.AddSambaShareDialog
 import com.poterion.footprint.manager.ui.ProgressDialog
 import com.poterion.footprint.manager.ui.SettingsController
+import com.poterion.footprint.manager.ui.helper.MetadataExtractorHelper
+import com.poterion.footprint.manager.ui.helper.PreviewLoaderHelper
 import com.poterion.footprint.manager.utils.Database
 import com.poterion.footprint.manager.utils.Notifications
 import com.poterion.footprint.manager.utils.addAll
@@ -46,7 +48,6 @@ import com.poterion.footprint.manager.workers.DuplicateScanner
 import com.poterion.footprint.manager.workers.GenerateTreeWorker
 import com.poterion.footprint.manager.workers.ImageLoader
 import com.poterion.footprint.manager.workers.ScanWorker
-import com.poterion.footprint.manager.workers.VideoLoader
 import com.poterion.utils.javafx.cell
 import com.poterion.utils.javafx.expandTree
 import com.poterion.utils.javafx.find
@@ -83,7 +84,6 @@ import javafx.scene.control.TreeItem
 import javafx.scene.control.TreeTableColumn
 import javafx.scene.control.TreeTableView
 import javafx.scene.control.TreeView
-import javafx.scene.image.Image
 import javafx.scene.image.ImageView
 import javafx.scene.input.MouseButton
 import javafx.scene.layout.FlowPane
@@ -185,14 +185,12 @@ class ManagerController {
 	private var scanExecutor = Executors.newFixedThreadPool(5)
 	private var treeUpdateExecutor = Executors.newSingleThreadExecutor()
 	private var thumbnailLoaderExecutor: ExecutorService? = null
-	private var mediaLoaderExecutor: ExecutorService? = null
 	private lateinit var multiProgress: MultiProgress
 
 	private var progressDialog: ProgressDialog? = null
 	private var scansInProgress = mutableMapOf<String, Boolean>()
 
 	private var mediaPlayer: MediaPlayer? = null
-	private var mediaPlayerSeekStatus: MediaPlayer.Status? = null
 
 	private val selectedMediaProperty = SimpleObjectProperty<MediaItem>()
 	private val selectedThumbnails = FXCollections.observableSet<MediaItem>()
@@ -201,9 +199,14 @@ class ManagerController {
 		.getResourceAsStream("/com/poterion/footprint/manager/images/loading.jpg")
 		.toImage()
 
+	private lateinit var previewLoaderHelper: PreviewLoaderHelper
+
 	@FXML
 	fun initialize() {
 		multiProgress = MultiProgress(progressbar)
+		previewLoaderHelper = PreviewLoaderHelper(stackPanePreview, mediaView, imageView, hboxPreviewControls,
+												  buttonPreviewPlayPause, sliderPreviewPosition, labelPreviewStart,
+												  labelPreviewCurrent, labelPreviewEnd)
 		buttonRemove.isDisable = true
 		buttonFindDuplicates.isDisable = Database.list(Device::class).none { it.isPrimary }
 
@@ -578,9 +581,9 @@ class ManagerController {
 
 			mediaPlayer?.stop()
 			if (item.imageFormat != null) {
-				item.loadInBackground(imageView)
+				previewLoaderHelper.loadPreviewInBackground(item) { mediaPlayer = it }
 			} else if (item.videoFormat != null) {
-				item.loadInBackground(mediaView)
+				previewLoaderHelper.loadPreviewInBackground(item) { mediaPlayer = it }
 				//mediaView.isVisible = true
 				//imageView.isVisible = false
 			} else {
@@ -604,6 +607,7 @@ class ManagerController {
 				.sortedBy { it.value.name }
 			tableMetadata.root.children.setAll(metadataItems)
 			tableMetadata.root.expandTree()
+			MetadataExtractorHelper.loadMetadataInBackground(item, tableMetadata)
 		}
 	}
 
@@ -756,90 +760,6 @@ class ManagerController {
 			.onError { }
 
 		thumbnailLoaderExecutor?.submit(imageLoader)
-	}
-
-	private fun MediaItem.loadInBackground(target: Node) {
-		mediaLoaderExecutor?.shutdownNow()
-		mediaLoaderExecutor?.awaitTermination(500, TimeUnit.MILLISECONDS)
-		mediaLoaderExecutor = Executors.newSingleThreadExecutor()
-
-		val loader = if (imageFormat != null) ImageLoader(0 to listOf(target to this))
-			.onUpdate { (node, image) ->
-				if (stackPanePreview.children.contains(mediaView)) stackPanePreview.children.remove(mediaView)
-				if (stackPanePreview.children.contains(hboxPreviewControls)) stackPanePreview.children.remove(
-						hboxPreviewControls)
-				if (!stackPanePreview.children.contains(imageView)) stackPanePreview.children.add(imageView)
-				mediaPlayer = null
-				(node as? ImageView)?.image = image
-			}
-			.onCancel { }
-			.onError { }
-		else if (videoFormat != null) VideoLoader(listOf(target to this))
-			.onUpdate { (node, item) ->
-				if (item is MediaPlayer) {
-					if (stackPanePreview.children.contains(imageView)) stackPanePreview.children.remove(imageView)
-					if (!stackPanePreview.children.contains(mediaView)) stackPanePreview.children.add(mediaView)
-					if (!stackPanePreview.children.contains(hboxPreviewControls)) stackPanePreview.children.add(
-							hboxPreviewControls)
-
-					imageView.image = null
-					mediaPlayer = item
-					(node as? MediaView)?.mediaPlayer = mediaPlayer
-
-					buttonPreviewPlayPause.text = null
-					buttonPreviewPlayPause.graphic = Icons.PAUSE.toImageView(32, 32)
-					sliderPreviewPosition.min = 0.0
-					sliderPreviewPosition.value = 0.0
-					sliderPreviewPosition.max = 0.0
-					labelPreviewStart.text = 0.toFormattedDuration()
-					labelPreviewCurrent.text = 0.toFormattedDuration()
-					labelPreviewEnd.text = 0.toFormattedDuration()
-
-					mediaPlayer?.setOnReady {
-						labelPreviewEnd.text = mediaPlayer?.totalDuration?.toMillis()?.toFormattedDuration()
-						sliderPreviewPosition.min = 0.0
-						sliderPreviewPosition.value = 0.0
-						sliderPreviewPosition.max = mediaPlayer?.totalDuration?.toMillis() ?: 0.0
-					}
-					mediaPlayer?.setOnPlaying { buttonPreviewPlayPause.graphic = Icons.PAUSE.toImageView(32, 32) }
-					mediaPlayer?.setOnPaused { buttonPreviewPlayPause.graphic = Icons.PLAY.toImageView(32, 32) }
-					mediaPlayer?.setOnStopped { buttonPreviewPlayPause.graphic = Icons.PLAY.toImageView(32, 32) }
-					mediaPlayer?.setOnHalted { buttonPreviewPlayPause.graphic = Icons.PLAY.toImageView(32, 32) }
-					mediaPlayer?.setOnEndOfMedia { mediaPlayer?.stop() }
-
-					mediaPlayer?.currentTimeProperty()?.addListener { _, _, position ->
-						sliderPreviewPosition.value = position.toMillis()
-						labelPreviewCurrent.text = position.toMillis().toFormattedDuration()
-					}
-
-					sliderPreviewPosition.setOnMousePressed {
-						mediaPlayerSeekStatus = mediaPlayer?.status
-						mediaPlayer?.pause()
-					}
-					sliderPreviewPosition.setOnMouseReleased {
-						mediaPlayer?.seek(Duration(sliderPreviewPosition.value))
-						if (mediaPlayerSeekStatus == MediaPlayer.Status.PLAYING) mediaPlayer?.play()
-						mediaPlayerSeekStatus = null
-					}
-					sliderPreviewPosition.valueProperty().addListener { _, _, position ->
-						if (mediaPlayerSeekStatus != null) mediaPlayer?.seek(Duration(position.toDouble()))
-					}
-
-					mediaPlayer?.isAutoPlay = true
-				} else if (item is Image) {
-					if (stackPanePreview.children.contains(mediaView)) stackPanePreview.children.remove(mediaView)
-					if (stackPanePreview.children.contains(hboxPreviewControls)) stackPanePreview.children.remove(
-							hboxPreviewControls)
-					if (!stackPanePreview.children.contains(imageView)) stackPanePreview.children.add(imageView)
-					mediaPlayer = null
-					imageView.image = item
-				}
-			}
-			.onCancel { }
-			.onError { }
-		else null
-
-		loader?.let { mediaLoaderExecutor?.submit(it) }
 	}
 
 	private fun createContextMenuItem(title: String, icon: Icons, action: () -> Unit): MenuItem =

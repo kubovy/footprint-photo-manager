@@ -16,18 +16,88 @@
  ******************************************************************************/
 package com.poterion.footprint.manager.utils
 
+import com.drew.imaging.ImageMetadataReader
 import com.drew.lang.Rational
 import com.drew.metadata.Directory
+import com.poterion.footprint.manager.data.MediaItem
 import com.poterion.footprint.manager.data.MetadataTag
+import com.poterion.footprint.manager.enums.NotificationType
 import com.poterion.footprint.manager.enums.TagValueType
+import org.slf4j.LoggerFactory
 import java.util.*
 import kotlin.math.floor
 
 /**
  * @author Jan Kubovy [jan@kubovy.eu]
  */
+private val LOGGER = LoggerFactory.getLogger("com.poterion.footprint.manager.utils.MetadataUtils")
+
 private fun String.detectRationalArray(defaultType: TagValueType) =
 		if (contains("/")) TagValueType.RATIONAL_ARRAY else defaultType
+
+fun MediaItem.extractMetadata(includeIrrelevant: Boolean = false):
+		Collection<MetadataTag> = inputStream()
+	?.buffered()
+	?.use { inputStream ->
+		val entities = mutableListOf<MetadataTag>()
+		val mediaItemMetadata = metadata
+		try {
+			val fileMetadata = ImageMetadataReader.readMetadata(inputStream)
+			for (directory in fileMetadata.directories) {
+				for (tag in directory.tags) if (includeIrrelevant || directory.isRelevant(tag.tagType)) {
+					var metadataTag: MetadataTag? = null
+					try {
+						metadataTag = mediaItemMetadata
+							.find { it.directory == directory.name && it.tagType == tag.tagType }
+							?: MetadataTag(
+									mediaItemId = id,
+									directory = directory.name,
+									name = tag.tagName,
+									tagType = tag.tagType,
+									valueType = directory.getTagValueType(tag.tagType))
+
+						metadataTag.apply {
+							raw = directory.getString(tag.tagType)
+							description = tag.description
+						}
+
+						entities.add(metadataTag)
+					} catch (t: Throwable) {
+						LOGGER.error("Error while processing metadata of ${this.uri}: ${t.message}", t)
+						Notifications.notify(value = t.message
+							?: "${t.javaClass.simpleName} occurred while processing metadata.",
+											 type = NotificationType.METADATA_ERROR,
+											 name = directory.name,
+											 deviceId = deviceId,
+											 mediaItemId = id,
+											 metadataTagId = metadataTag?.id)
+					}
+				} else {
+					LOGGER.debug("${uri}: [${directory.name}]: ${tag.tagType} \"${tag.tagName}\" =" +
+										 " (${directory.getTagValueType(tag.tagType)})" +
+										 " ${tag.description} / ${directory.getString(tag.tagType)}")
+				}
+				if (directory.hasErrors()) {
+					for (error in directory.errors) {
+						LOGGER.error("ERROR: ${error}")
+						Notifications.notify(value = error,
+											 type = NotificationType.METADATA_ERROR,
+											 name = directory.name,
+											 deviceId = deviceId,
+											 mediaItemId = id)
+					}
+				}
+			}
+		} catch (t: Throwable) {
+			LOGGER.error("Error while processing ${this.uri}: ${t.message}", t)
+			Notifications.notify(
+					value = t.message ?: "${t.javaClass.simpleName} occurred while processing metadata.",
+					type = NotificationType.PROCESSING_PROBLEM,
+					deviceId = deviceId,
+					mediaItemId = id)
+		}
+		entities
+	} ?: emptyList()
 
 fun Directory.getTagValueType(tagType: Int) = this.getDate(tagType)
 	?.let { TagValueType.DATE }
@@ -190,9 +260,9 @@ fun MetadataTag.isRelevant() = isRelevant(directory, tagType, valueType, raw)
 
 fun List<String>.detectMetadataTag(): MetadataTag? = takeIf { it.size >= 5 }
 	?.subList(1, 5)
-	?.let { (directory, tag, _, value) ->
+	?.let { (directory, tag, name, value) ->
 		val tagType = tag.toIntOrNull()
-		if (tagType != null) when {
+		when {
 			//directory == "" && tagType == 1 -> MetadataTag(directory = "AVI", tagType = tagType, name = "Frames Per Second", valueType = TagValueType.DOUBLE, raw = value)
 			//directory == "" && tagType == 3 -> MetadataTag(directory = "AVI", tagType = tagType, name = "Duration", valueType = TagValueType.DATE, raw = value)
 			//directory == "" && tagType == 6 -> MetadataTag(directory = "AVI", tagType = tagType, name = "Width", valueType = TagValueType.INT, raw = value)
@@ -443,8 +513,67 @@ fun List<String>.detectMetadataTag(): MetadataTag? = takeIf { it.size >= 5 }
 			//directory == "" && tagType == 206 -> MetadataTag(directory = "MP4 Video", tagType = tagType, name = "Horizontal Resolution", valueType = TagValueType.UNKNOWN, raw = value)
 			//directory == "" && tagType == 207 -> MetadataTag(directory = "MP4 Video", tagType = tagType, name = "Vertical Resolution", valueType = TagValueType.UNKNOWN, raw = value)
 			//directory == "" && tagType == 214 -> MetadataTag(directory = "MP4 Video", tagType = tagType, name = "Frame Rate", valueType = TagValueType.UNKNOWN, raw = value)
+			directory == "File:System:Image:Main" && tagType == null && name == "File Size" -> MetadataTag(directory = "File Type",
+																										   tagType = -1,
+																										   name = name,
+																										   valueType = TagValueType.DATE,
+																										   raw = value)
+			directory == "File:System:Time:Main" && tagType == null && name == "File Modification Date/Time" -> MetadataTag(
+					directory = "File Type",
+					tagType = -1,
+					name = name,
+					valueType = TagValueType.DATE,
+					raw = value)
+			directory == "QuickTime:Video:Main" && tagType == 3 -> MetadataTag(directory = "QuickTime",
+																			   tagType = tagType,
+																			   name = name,
+																			   valueType = TagValueType.INT,
+																			   raw = value)
+			directory == "QuickTime:Video:Main" && tagType == 4 -> MetadataTag(directory = "QuickTime",
+																			   tagType = tagType,
+																			   name = name,
+																			   valueType = TagValueType.DATE,
+																			   raw = value)
+			directory == "QuickTime:Track1:Video:Main" && tagType == 19 -> MetadataTag(directory = "QuickTime",
+																					   tagType = tagType,
+																					   name = name,
+																					   valueType = TagValueType.INT,
+																					   raw = value)
+			directory == "QuickTime:Track1:Video:Main" && tagType == 20 -> MetadataTag(directory = "QuickTime",
+																					   tagType = tagType,
+																					   name = name,
+																					   valueType = TagValueType.INT,
+																					   raw = value)
+			directory == "QuickTime:Track1:Video:Main" && tagType == 4 -> MetadataTag(directory = "QuickTime",
+																					  tagType = tagType,
+																					  name = name,
+																					  valueType = TagValueType.DATE,
+																					  raw = value)
+			directory == "QuickTime:Track1:Video:Main" && tagType == null && name == "Video Frame Rate" -> MetadataTag(
+					directory = "QuickTime",
+					tagType = -1,
+					name = name,
+					valueType = TagValueType.FLOAT,
+					raw = value)
+			directory == "QuickTime:Track1:Image:Main" && tagType == 16 -> MetadataTag(directory = "QuickTime",
+																					   tagType = tagType,
+																					   name = name,
+																					   valueType = TagValueType.INT,
+																					   raw = value)
+			directory == "QuickTime:Track1:Image:Main" && tagType == 17 -> MetadataTag(directory = "QuickTime",
+																					   tagType = tagType,
+																					   name = name,
+																					   valueType = TagValueType.INT,
+																					   raw = value)
+			directory == "Composite:Image:Main" && tagType == null && name == "Image Size" -> MetadataTag(directory = "Composite Image",
+																										  tagType = -1,
+																										  name = "Image Size",
+																										  valueType = TagValueType.STRING,
+																										  raw = value)
+			//directory == "" && tagType == null && name == "" -> MetadataTag(directory = "", tagType = -1, name = "", valueType = TagValueType.UNKNOWN, raw = value)
+//			directory == "" && tagType == -1 -> MetadataTag(directory = "", tagType = tagType, name = "", valueType = TagValueType.UNKNOWN, raw = value)
 			else -> null
-		} else null
+		}
 	}
 
 private fun String.toRaw(directory: String, tagType: Int, name: String, tagValueType: TagValueType) = MetadataTag(

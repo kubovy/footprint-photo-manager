@@ -34,6 +34,7 @@ import com.poterion.footprint.manager.utils.deleteCachedFile
 import com.poterion.footprint.manager.utils.detectMetadataTag
 import com.poterion.footprint.manager.utils.device
 import com.poterion.footprint.manager.utils.deviceType
+import com.poterion.footprint.manager.utils.extractMetadata
 import com.poterion.footprint.manager.utils.getCachedImage
 import com.poterion.footprint.manager.utils.inputStream
 import com.poterion.footprint.manager.utils.mediaItems
