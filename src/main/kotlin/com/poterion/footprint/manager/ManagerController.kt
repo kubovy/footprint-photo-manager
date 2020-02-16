@@ -116,13 +116,13 @@ import java.util.concurrent.TimeUnit
 class ManagerController {
 
 	companion object {
-		fun get(stage: Stage): Parent {
+		fun get(stage: Stage, initialScan: Boolean): Parent {
 			val fxmlLoader = FXMLLoader()
 			val root =
 					fxmlLoader.load<Pane>(ManagerController::class.java.getResource("/com/poterion/footprint/manager/main.fxml").openStream())
 			val controller = fxmlLoader.getController<ManagerController>() as ManagerController
 			controller.stage = stage
-			controller.start()
+			controller.start(initialScan)
 			return root
 		}
 	}
@@ -319,7 +319,7 @@ class ManagerController {
 		selectedMediaProperty.addListener { _, _, item -> showItem(item) }
 	}
 
-	private fun start() {
+	private fun start(initialScan: Boolean) {
 		stage.setOnShown {
 			Notifications.subject.sample(2, TimeUnit.SECONDS).subscribe { notifications ->
 				Platform.runLater {
@@ -332,7 +332,7 @@ class ManagerController {
 			progressDialog?.setOnShown { updateDataTree() }
 			progressDialog?.show()
 
-			Database.list(Device::class)
+			if (initialScan) Database.list(Device::class)
 				.filter { it.type == DeviceType.LOCAL }
 				.mapNotNull { it.toUriOrNull() }
 				.forEach { it.scan() }
